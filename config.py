@@ -1,8 +1,5 @@
 """
 Central configuration for the multi-agent software development system.
-
-Kept as a single flat module (rather than a package) so experiment
-parameters are easy to find and tweak for dissertation runs.
 """
 import os
 from dotenv import load_dotenv
@@ -25,11 +22,11 @@ OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/ap
 # catalogues, so the "default" naturally differs.
 _DEFAULT_MODEL_BY_PROVIDER = {
     "groq": "openai/gpt-oss-120b",
-    "openrouter": "openai/gpt-5",
+    "openrouter": "openai/gpt-oss-20b",
 }
 
 # Model used by every agent by default.
-LLM_MODEL = os.getenv("LLM_MODEL", _DEFAULT_MODEL_BY_PROVIDER.get(LLM_PROVIDER, "openai/gpt-5"))
+LLM_MODEL = os.getenv("LLM_MODEL", _DEFAULT_MODEL_BY_PROVIDER.get(LLM_PROVIDER, "openai/gpt-oss-120b"))
 
 # --- Per-agent model overrides ---
 # By default, every role uses LLM_MODEL - override individually via env vars if desired,
@@ -51,8 +48,7 @@ TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
 # single per-minute budget and reject the request outright (HTTP 413) if
 # that sum alone exceeds the limit - regardless of how much of the
 # account's per-minute budget has actually been used so far. Default is
-# provider-aware: Groq's tight TPM ceiling makes a large ceiling pointless,
-# while OpenRouter's paid tiers can typically make good use of more.
+# provider-aware, but can be overridden via the MAX_TOKENS env var if desired.
 _DEFAULT_MAX_TOKENS_BY_PROVIDER = {
     "groq": 8192,
     "openrouter": 16384,
@@ -80,21 +76,23 @@ MODEL_TPM_LIMIT = int(
 
 # --- Per-agent completion token caps ---
 # Requirements/architecture/review artifacts are short, structured JSON
-# with a handful of fields - capping their completion budget low
-# discourages the model from padding output with unnecessary verbosity.
-# This is INDEPENDENT of which provider/TPM limit is in effect - it's a
-# deliberate content-shape decision, not a rate-limit workaround (though
-# on Groq it also happens to help stay under the tight TPM ceiling).
-# Developer and Tester output (generated source code / test files) are
-# the two roles whose length genuinely varies with task complexity, so
-# they are NOT capped here - they get whatever the dynamic per-call
-# budget (see llm_client._safe_max_tokens) allows, up to MAX_TOKENS.
+# with a handful of fields, so they use conservative default completion
+# caps to discourage unnecessary verbosity.
+#
+# Developer and Tester outputs (generated source code / test files) vary
+# substantially with task complexity, so they have no agent-specific cap
+# by default. Optional caps can still be supplied through the corresponding
+# environment variables when needed.
+#
+# These agent-specific limits are independent of provider/model limits.
+# The actual completion budget for every call is still constrained by the
+# dynamic safety calculation in llm_client._safe_max_tokens and MAX_TOKENS.
 AGENT_MAX_TOKENS = {
-    "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "6000")),
-    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "6000")),
-    "review": int(os.getenv("REVIEW_MAX_TOKENS", "6000")),
-    "test_result": None,
-    "developer": None,
+    "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "8000")),
+    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "8000")),
+    "review": int(os.getenv("REVIEW_MAX_TOKENS", "8000")),
+    "test_result": int(os.getenv("TEST_RESULT_MAX_TOKENS")) if os.getenv("TEST_RESULT_MAX_TOKENS") else None,
+    "developer": int(os.getenv("DEVELOPER_MAX_TOKENS")) if os.getenv("DEVELOPER_MAX_TOKENS") else None,
 }
 
 
