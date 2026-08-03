@@ -54,26 +54,51 @@ class WorkflowState(TypedDict, total=False):
     error: Optional[str]
 
 
+def _log_stage(title: str, **details: Any) -> None:
+    """Print a clear console banner marking which workflow stage is
+    starting/finishing, so progress is visible at a glance while a run
+    is in progress (as opposed to digging through workflow_log.jsonl)."""
+    detail_str = " ".join(f"{k}={v}" for k, v in details.items())
+    print(f"\n===== [STAGE] {title} {detail_str} =====")
+
+
 def _node_requirements(state: WorkflowState) -> dict[str, Any]:
+    _log_stage(
+        "Requirements Engineer - starting",
+        provider=config.LLM_PROVIDER,
+        model=config.REQUIREMENTS_MODEL,
+    )
     reqs = requirements_engineer.run(state["task_prompt"], state["stats"])
     persistence.save_artifact(state["run_dir"], "01_requirements.json", reqs)
     persistence.append_log(
         state["run_dir"], "requirements_produced", model=config.REQUIREMENTS_MODEL
     )
+    _log_stage("Requirements Engineer - done")
     return {"requirements": reqs}
 
 
 def _node_architect(state: WorkflowState) -> dict[str, Any]:
+    _log_stage(
+        "Architect - starting",
+        provider=config.LLM_PROVIDER,
+        model=config.ARCHITECT_MODEL,
+    )
     arch = architect.run(state["requirements"], state["stats"])
     persistence.save_artifact(state["run_dir"], "02_architecture.json", arch)
     persistence.append_log(
         state["run_dir"], "architecture_produced", model=config.ARCHITECT_MODEL
     )
+    _log_stage("Architect - done")
     return {"architecture": arch}
 
 
 def _node_developer(state: WorkflowState) -> dict[str, Any]:
     revision = state.get("revision_count", 0)
+    _log_stage(
+        f"Developer - starting (revision {revision})",
+        provider=config.LLM_PROVIDER,
+        model=config.DEVELOPER_MODEL,
+    )
     code = developer.run(
         state["requirements"],
         state["architecture"],
@@ -91,10 +116,16 @@ def _node_developer(state: WorkflowState) -> dict[str, Any]:
         revision=code.revision,
         model=config.DEVELOPER_MODEL,
     )
+    _log_stage(f"Developer - done (revision {code.revision})")
     return {"code": code, "revision_count": revision}
 
 
 def _node_reviewer(state: WorkflowState) -> dict[str, Any]:
+    _log_stage(
+        "Reviewer - starting",
+        provider=config.LLM_PROVIDER,
+        model=config.REVIEWER_MODEL,
+    )
     feedback = reviewer.run(
         state["requirements"], state["architecture"], state["code"], state["stats"]
     )
@@ -106,10 +137,16 @@ def _node_reviewer(state: WorkflowState) -> dict[str, Any]:
         verdict=feedback.verdict.value,
         model=config.REVIEWER_MODEL,
     )
+    _log_stage(f"Reviewer - done (verdict={feedback.verdict.value})")
     return {"review_feedback": feedback}
 
 
 def _node_tester(state: WorkflowState) -> dict[str, Any]:
+    _log_stage(
+        "Tester / QA - starting",
+        provider=config.LLM_PROVIDER,
+        model=config.TESTER_MODEL,
+    )
     results = tester.run(
         state["requirements"], state["architecture"], state["code"], state["stats"]
     )
@@ -118,6 +155,10 @@ def _node_tester(state: WorkflowState) -> dict[str, Any]:
     persistence.save_qa_tests(state["run_dir"], results)
     persistence.append_log(
         state["run_dir"], "qa_tests_produced", passed=results.passed, model=config.TESTER_MODEL
+    )
+    _log_stage(
+        f"Tester / QA - done (passed={results.passed}, "
+        f"{results.passed_tests}/{results.total_tests} tests)"
     )
     return {"test_results": results}
 
@@ -147,6 +188,7 @@ def _node_prepare_revision(state: WorkflowState) -> dict[str, Any]:
     persistence.append_log(
         state["run_dir"], "revision_loop", new_revision_count=new_count
     )
+    _log_stage(f"Revision loop -> starting revision {new_count}")
     return {"revision_count": new_count}
 
 
@@ -157,6 +199,7 @@ def _node_finish(state: WorkflowState) -> dict[str, Any]:
     else:
         status = WorkflowStatus.FAILED_MAX_REVISIONS
     persistence.append_log(state["run_dir"], "workflow_finished", status=status.value)
+    _log_stage(f"Workflow finished - status={status.value}")
     return {"status": status.value}
 
 

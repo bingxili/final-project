@@ -47,7 +47,7 @@ def main() -> int:
     meta = RunMeta(
         task_id=task_id,
         task_prompt=task_prompt,
-        model=config.LLM_MODEL,
+        default_model=config.LLM_MODEL,
         started_at=datetime.now(timezone.utc).isoformat(),
         max_revisions=args.max_revisions,
     )

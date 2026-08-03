@@ -253,6 +253,11 @@ def _chat_completion(
     max_tokens = _safe_max_tokens(messages, agent_role=agent_role)
 
     for attempt in range(1, config.MAX_RETRIES + 1):
+        print(
+            f"[LLM] -> provider={config.LLM_PROVIDER} model={model} "
+            f"role={agent_role or 'n/a'} attempt={attempt}/{config.MAX_RETRIES}"
+        )
+        call_started = time.time()
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -260,12 +265,19 @@ def _chat_completion(
                 temperature=config.TEMPERATURE,
                 max_tokens=max_tokens,
             )
+            elapsed = time.time() - call_started
+            usage = response.usage
             if stats is not None:
-                usage = response.usage
                 stats.record(
                     prompt_tokens=usage.prompt_tokens if usage else 0,
                     completion_tokens=usage.completion_tokens if usage else 0,
                 )
+            print(
+                f"[LLM] <- provider={config.LLM_PROVIDER} model={model} "
+                f"role={agent_role or 'n/a'} done in {elapsed:.1f}s "
+                f"(prompt_tokens={usage.prompt_tokens if usage else '?'}, "
+                f"completion_tokens={usage.completion_tokens if usage else '?'})"
+            )
             choice = response.choices[0]
             if choice.finish_reason == "length":
                 # The model's response was cut off mid-output because it
@@ -304,9 +316,19 @@ def _chat_completion(
                 # second too early and hitting the same limit again.
                 exact_wait = _retry_after_seconds(exc)
                 wait_time = exact_wait + 1.0 if exact_wait is not None else backoff
+                print(
+                    f"[LLM] ⚠ provider={config.LLM_PROVIDER} model={model} "
+                    f"role={agent_role or 'n/a'} retryable error ({exc}); "
+                    f"waiting {wait_time:.1f}s before retry "
+                    f"{attempt + 1}/{config.MAX_RETRIES}"
+                )
                 time.sleep(wait_time)
                 backoff *= config.BACKOFF_MULTIPLIER
                 continue
+            print(
+                f"[LLM] ✗ provider={config.LLM_PROVIDER} model={model} "
+                f"role={agent_role or 'n/a'} failed permanently: {exc}"
+            )
             raise
 
     # Should not be reached, but keeps type-checkers happy.

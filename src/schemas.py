@@ -197,7 +197,9 @@ class WorkflowStatus(str, Enum):
 class RunMeta(BaseModel):
     task_id: str
     task_prompt: str
-    model: str
+    # NOTE: this is only the global fallback default (config.LLM_MODEL) -
+    # each agent role can override it individually
+    default_model: str
     started_at: str
     finished_at: Optional[str] = None
     status: WorkflowStatus = WorkflowStatus.RUNNING
