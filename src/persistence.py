@@ -74,13 +74,28 @@ def append_log(run_dir: str, event: str, **fields: Any) -> None:
         fh.write(json.dumps(record) + "\n")
 
 
-def _write_source_files(base_dir: str, files: list[SourceFile], clean: bool = True) -> None:
+def _write_source_files(
+    base_dir: str,
+    files: list[SourceFile],
+    clean: bool = True,
+    preserve_subdirs: tuple[str, ...] = (),
+) -> None:
     """Write files under base_dir. By default wipes base_dir first so a
     file renamed/removed across revisions doesn't leave a stale copy
     behind (e.g. QA naming a test file differently revision to revision
-    previously left both the old and new file on disk side by side)."""
+    previously left both the old and new file on disk side by side).
+
+    `preserve_subdirs` lists immediate child directory names to leave
+    untouched during the wipe."""
     if clean and os.path.isdir(base_dir):
-        shutil.rmtree(base_dir)
+        for entry in os.listdir(base_dir):
+            if entry in preserve_subdirs:
+                continue
+            entry_path = os.path.join(base_dir, entry)
+            if os.path.isdir(entry_path) and not os.path.islink(entry_path):
+                shutil.rmtree(entry_path)
+            else:
+                os.remove(entry_path)
     os.makedirs(base_dir, exist_ok=True)
     for f in files:
         path = os.path.join(base_dir, f.path)
@@ -93,20 +108,28 @@ def save_generated_project(run_dir: str, code: CodeArtifact) -> None:
     """
     Overwrite generated_project/ with the given code revision's source
     files. Called after every Developer revision so the latest code is
-    always on disk, not just the final one. The directory is wiped first
-    (see _write_source_files) - qa_tests/ (written separately by
-    save_qa_tests, after Tester runs) and dev_tests/ (written by
-    save_dev_tests, right after this call) are intentionally cleared too
-    here: a fresh Developer revision hasn't been QA-tested/self-tested
-    yet, and leaving a stale qa_tests/ from a previous revision around
-    would make it look like it was tested against code that's no longer
-    on disk. If the workflow ends before Tester re-runs (e.g. hitting
-    MAX_REVISIONS right after a Reviewer rejection), qa_tests/ will
-    simply be absent for that final revision - that's the correct,
-    unambiguous signal that QA never verified it.
+    always on disk, not just the final one.
+
+    qa_tests/ is preserved (not wiped) here: since tester.py designs
+    its independent test suite only once (on the first revision) and
+    reuses it verbatim on every later revision (see agents/tester.py -
+    QA's test design depends only on Requirements/Architecture, which
+    don't change across the Developer revision loop), qa_tests/ content
+    is stable across revisions and never goes stale relative to a new
+    revision's source code the way it would if QA rewrote it from
+    scratch each time. Preserving it also means the last real QA run's
+    results/definition stay visible on disk even if the workflow ends
+    (e.g. hits MAX_REVISIONS) before Tester gets to re-run against this
+    exact revision.
+
+    dev_tests/ is NOT preserved - it's the Developer's own self-tests,
+    written by save_dev_tests right after this call in the same node, so
+    it's correct to wipe/refresh it along with the source every revision.
     """
     project_dir = os.path.join(run_dir, "generated_project")
-    _write_source_files(project_dir, code.source_files)
+    _write_source_files(
+        project_dir, code.source_files, preserve_subdirs=("qa_tests",)
+    )
 
 
 def save_dev_tests(run_dir: str, code: CodeArtifact) -> None:

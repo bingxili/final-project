@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
+from typing import Optional
 
 import config
 from src.llm_client import call_tester_code, LLMCallStats
@@ -236,15 +237,33 @@ def run(
     architecture: Architecture,
     code: CodeArtifact,
     stats: LLMCallStats,
+    previous_test_results: Optional[TestResults] = None,
 ) -> TestResults:
-    user_prompt = _build_user_prompt(requirements, architecture, code)
-    partial = call_tester_code(
-        SYSTEM_PROMPT, user_prompt, QATestPartial, stats=stats,
-        model=config.TESTER_MODEL, agent_role="test_result",
-    )
+    # QA's test design (test cases + test files) depends only on
+    # Requirements/Architecture, which don't change across the Developer
+    # revision loop - only the source code does. So the design is only
+    # generated once (first call, previous_test_results is None) and then
+    # reused verbatim on every later revision: we merely re-execute the
+    # SAME independent test suite against the new code. This keeps QA's
+    # bar stable across revisions (not a moving target where each retry
+    # gets differently-designed tests) and avoids an extra LLM call per
+    # revision purely to re-describe the same black-box tests.
+    if previous_test_results is not None:
+        qa_test_cases = previous_test_results.qa_test_cases
+        qa_test_files = previous_test_results.qa_test_files
+        qa_summary = previous_test_results.qa_summary
+    else:
+        user_prompt = _build_user_prompt(requirements, architecture, code)
+        partial = call_tester_code(
+            SYSTEM_PROMPT, user_prompt, QATestPartial, stats=stats,
+            model=config.TESTER_MODEL, agent_role="test_result",
+        )
+        qa_test_cases = partial.qa_test_cases
+        qa_test_files = partial.qa_test_files
+        qa_summary = partial.summary
 
     passed, stdout, stderr, return_code, test_case_results = _execute_tests(
-        code.source_files, partial.qa_test_files
+        code.source_files, qa_test_files
     )
 
     total_tests = len(test_case_results)
@@ -258,8 +277,8 @@ def run(
 
     return TestResults(
         revision_tested=code.revision,
-        qa_test_cases=partial.qa_test_cases,
-        qa_test_files=partial.qa_test_files,
+        qa_test_cases=qa_test_cases,
+        qa_test_files=qa_test_files,
         executed=True,
         passed=passed,
         stdout=stdout,
@@ -270,6 +289,6 @@ def run(
         failed_tests=failed_tests,
         pass_rate=pass_rate,
         test_case_results=test_case_results,
-        qa_summary=partial.summary,
+        qa_summary=qa_summary,
         summary=summary,
     )

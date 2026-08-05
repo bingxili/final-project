@@ -157,7 +157,11 @@ def _node_tester(state: WorkflowState) -> dict[str, Any]:
         model=config.TESTER_MODEL,
     )
     results = tester.run(
-        state["requirements"], state["architecture"], state["code"], state["stats"]
+        state["requirements"],
+        state["architecture"],
+        state["code"],
+        state["stats"],
+        previous_test_results=state.get("test_results"),
     )
     filename = f"05_test_results_v{state['code'].revision}.json"
     persistence.save_artifact(state["run_dir"], filename, results)
