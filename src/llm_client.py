@@ -278,6 +278,23 @@ def _chat_completion(
                 f"(prompt_tokens={usage.prompt_tokens if usage else '?'}, "
                 f"completion_tokens={usage.completion_tokens if usage else '?'})"
             )
+            if _current_run_dir is not None:
+                from src import persistence
+
+                persistence.append_log(
+                    _current_run_dir,
+                    "llm_call",
+                    agent_role=agent_role,
+                    provider=config.LLM_PROVIDER,
+                    model=model,
+                    attempt=attempt,
+                    elapsed_seconds=round(elapsed, 2),
+                    prompt_tokens=usage.prompt_tokens if usage else None,
+                    completion_tokens=usage.completion_tokens if usage else None,
+                    total_tokens=(
+                        usage.prompt_tokens + usage.completion_tokens if usage else None
+                    ),
+                )
             choice = response.choices[0]
             if choice.finish_reason == "length":
                 # The model's response was cut off mid-output because it
@@ -544,28 +561,38 @@ escaping of quotes/newlines (this is not a JSON string).
 <<<FILE: another/file.py>>>
 <the complete raw file content, verbatim>
 <<<END FILE>>>
+<<<TEST_FILE: relative/path/to/test_file.py>>>
+<a small pytest self-test file for the code above, verbatim>
+<<<END FILE>>>
 
 Rules:
 - Include one <<<FILE: ...>>> / <<<END FILE>>> block per source file, with \
 no escaping - paste the code exactly as it should appear on disk.
+- Include a few <<<TEST_FILE: ...>>> / <<<END FILE>>> blocks with your own \
+quick self-tests (pytest) covering the main functionality - these are for \
+your own sanity check, not a replacement for independent QA.
 - Never write the literal text "<<<END FILE>>>" inside a file's own \
 content.
-- Emit the four header markers exactly once each, in the order shown, \
-before the first <<<FILE:>>> block.
+- Emit the header markers exactly once each, in the order shown, before \
+the first <<<FILE:>>>/<<<TEST_FILE:>>> block.
 """
 
 _FILE_BLOCK_RE = re.compile(
-    r"<<<FILE:\s*(?P<path>.+?)\s*>>>\n(?P<content>.*?)"
-    # The closing "\n<<<END FILE>>>" marker and the next "<<<FILE:" marker
-    # are matched with an optional leading newline (\n?) rather than a
-    # required one - models sometimes omit the trailing newline after the
-    # last line of a file's content, and requiring "\n" here caused the
-    # literal "<<<END FILE>>>"/"<<<FILE:" text to leak into the previous
-    # file's content instead of being recognised as the delimiter (seen in
-    # practice: leaked "<<<END FILE>>>" text caused a SyntaxError that
-    # failed every QA test). See _extract_file_blocks for a second,
-    # defensive cleanup pass in case a leak still slips through.
-    r"(?:\n?<<<END FILE>>>|\n?(?=<<<FILE:)|\Z)",
+    # Matches both "<<<FILE: path>>>" (source) and "<<<TEST_FILE: path>>>"
+    # (Developer's own self-tests) blocks - the `kind` group tells the two
+    # apart so callers can route them to source_files vs self_test_files.
+    r"<<<(?P<kind>FILE|TEST_FILE):\s*(?P<path>.+?)\s*>>>\n(?P<content>.*?)"
+    # The closing "\n<<<END FILE>>>" marker and the next "<<<FILE:"/
+    # "<<<TEST_FILE:" marker are matched with an optional leading newline
+    # (\n?) rather than a required one - models sometimes omit the
+    # trailing newline after the last line of a file's content, and
+    # requiring "\n" here caused the literal "<<<END FILE>>>"/"<<<FILE:"
+    # text to leak into the previous file's content instead of being
+    # recognised as the delimiter (seen in practice: leaked
+    # "<<<END FILE>>>" text caused a SyntaxError that failed every QA
+    # test). See _extract_file_blocks for a second, defensive cleanup pass
+    # in case a leak still slips through.
+    r"(?:\n?<<<END FILE>>>|\n?(?=<<<(?:FILE|TEST_FILE):)|\Z)",
     re.DOTALL,
 )
 
@@ -589,9 +616,10 @@ def _strip_markdown_fences(text: str) -> str:
 
 def _split_header_and_body(text: str) -> tuple[str, str]:
     """Split a header+file-blocks response into the header portion (before
-    the first <<<FILE: ...>>> marker) and the body portion (from that
-    marker onwards, containing all the file blocks)."""
-    first_file_idx = text.find("<<<FILE:")
+    the first <<<FILE:...>>>/<<<TEST_FILE:...>>> marker) and the body
+    portion (from that marker onwards, containing all the file blocks)."""
+    candidates = [i for i in (text.find("<<<FILE:"), text.find("<<<TEST_FILE:")) if i != -1]
+    first_file_idx = min(candidates) if candidates else -1
     header = text[:first_file_idx] if first_file_idx != -1 else text
     body = text[first_file_idx:] if first_file_idx != -1 else ""
     return header, body
@@ -616,7 +644,11 @@ def _extract_file_blocks(body: str) -> list[dict[str, str]]:
     files = []
     for m in _FILE_BLOCK_RE.finditer(body):
         content = _LEAKED_MARKER_RE.sub("", m.group("content"))
-        files.append({"path": m.group("path").strip(), "content": content})
+        files.append({
+            "path": m.group("path").strip(),
+            "content": content,
+            "kind": m.group("kind"),
+        })
     return files
 
 
@@ -661,8 +693,10 @@ def _parse_developer_response(text: str, schema: Type[T]) -> T:
                 continue
             notes.append(line[2:].strip() if line.startswith("- ") else line)
 
-    files = _extract_file_blocks(body)
-    if not files:
+    blocks = _extract_file_blocks(body)
+    source_files = [f for f in blocks if f["kind"] == "FILE"]
+    self_test_files = [f for f in blocks if f["kind"] == "TEST_FILE"]
+    if not source_files:
         raise ValueError(
             "No <<<FILE: ...>>> blocks found in Developer response."
         )
@@ -670,7 +704,8 @@ def _parse_developer_response(text: str, schema: Type[T]) -> T:
     data = {
         "revision": revision,
         "summary": summary,
-        "source_files": files,
+        "source_files": source_files,
+        "self_test_files": self_test_files,
         "notes_for_reviewer": notes,
     }
     return schema.model_validate(data)
@@ -835,7 +870,7 @@ anything in markdown code fences. Write raw source code directly, with no \
 escaping of quotes/newlines (this is not a JSON string).
 
 <<<SUMMARY>>>
-<one short paragraph summarizing the test run/coverage>
+<one short paragraph summarizing the planned test coverage>
 <<<TEST_CASES>>>
 <one test case per line, formatted exactly as:>
 <id> | <description> | <comma-separated acceptance criteria ids, or "none">

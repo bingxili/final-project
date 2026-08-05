@@ -5,17 +5,20 @@ Consumes: Requirements, Architecture, optional prior CodeArtifact +
 ReviewFeedback/TestResults (when revising).
 Produces: CodeArtifact - source files implementing the design.
 
-Note: the Developer does not write or run its own tests - independent
-QA/Tester black-box tests in agents/tester.py are the only test suite
-exercised against this code. This keeps QA fully independent and keeps
-the Developer's response small (fewer tokens spent per call, which
-matters a lot under a tight tokens-per-minute budget).
+Self-test loop: the Developer also writes a small set of its own pytest
+self-tests and runs them locally. If they fail, it gets exactly limited
+number of self-fix attempts (config.DEVELOPER_SELF_FIX_ATTEMPTS). This is a
+fast,internal sanity check only - separate from and does not count against
+config.MAX_REVISIONS (the external Developer <-> Reviewer/Tester loop).
+QA in agents/tester.py remains fully independent and never sees these
+self-tests.
 """
 from __future__ import annotations
 
 from typing import Optional
 
 import config
+from src import test_harness
 from src.llm_client import call_developer_code, LLMCallStats
 from src.schemas import (
     Architecture,
@@ -30,8 +33,9 @@ You are a Software Developer. Given requirements and an architecture,
 implement the code in the language chosen by the architecture.
 
 Rules:
-- Follow the architecture's language/dependency choices; stick to the
-  standard library unless it specifies otherwise.
+- Follow the architecture's module design and dependency choices.
+  Prefer standard library unless the architecture explicitly
+  specifies a justified third-party dependency.
 - The architecture's `public_interfaces` entries are exact contracts -
   implement every one with EXACTLY that signature. QA's independent
   tests are written against those signatures without seeing your code,
@@ -49,6 +53,8 @@ Rules:
   file this way - if one must be removed, say so in notes_for_reviewer.
 - Implement every piece of functionality fully; the generated project
   MUST be runnable end-to-end.
+- Also write a few pytest self-tests (as TEST_FILE blocks) covering the 
+  main functionality, as a quick sanity check before handoff.
 """
 
 
@@ -109,6 +115,46 @@ def _build_user_prompt(
     return "\n".join(parts)
 
 
+def _build_self_fix_prompt(code: CodeArtifact) -> str:
+    """User-message follow-up asking the Developer to fix its own code
+    after its self-tests failed. Sent as one extra turn in the same
+    conversation, not a fresh call_developer_code() invocation, so the
+    model still has full context of what it just wrote."""
+    return (
+        "Your own self-tests FAILED when run just now:\n"
+        f"{code.self_test_summary}\n\n"
+        "Fix the underlying bug(s) in your source files (and/or your "
+        "self-tests if THEY are wrong) and resend the FULL response again "
+        "in the same header+file-block format, including every source "
+        "file (changed or not) and your self-test files. This is your "
+        "only self-fix attempt - after this, the code goes to Reviewer/QA "
+        "as-is."
+    )
+
+
+def _run_self_tests(code: CodeArtifact) -> None:
+    """Run the Developer's own self-tests (if any) and populate the
+    self-test result fields on `code` in place."""
+    if not code.self_test_files:
+        return
+
+    passed, stdout, stderr, _return_code, test_case_results = test_harness.run_pytest(
+        code.source_files, code.self_test_files
+    )
+    total = len(test_case_results)
+    passed_count = sum(1 for r in test_case_results if r.outcome == "passed")
+
+    code.self_tests_ran = True
+    code.self_tests_passed = passed
+    code.self_test_total = total
+    code.self_test_passed_count = passed_count
+    code.self_test_summary = test_harness.build_summary(total, passed_count, test_case_results)
+    # Stash raw output on the summary for the self-fix prompt below (kept
+    # short - full stdout/stderr aren't persisted on CodeArtifact).
+    if not passed:
+        code.self_test_summary += f"\nstdout: {stdout[-1500:]}\nstderr: {stderr[-1500:]}"
+
+
 def run(
     requirements: Requirements,
     architecture: Architecture,
@@ -149,5 +195,30 @@ def run(
         for f in code.source_files:
             merged[f.path] = f
         code.source_files = list(merged.values())
+
+    if config.DEVELOPER_SELF_TEST_ENABLED:
+        _run_self_tests(code)
+
+        attempts = 0
+        while (
+            code.self_tests_ran
+            and not code.self_tests_passed
+            and attempts < config.DEVELOPER_SELF_FIX_ATTEMPTS
+        ):
+            attempts += 1
+            code.self_fix_attempted = True
+            fix_prompt = user_prompt + "\n\n" + _build_self_fix_prompt(code)
+            fixed = call_developer_code(
+                SYSTEM_PROMPT, fix_prompt, CodeArtifact, stats=stats,
+                model=config.DEVELOPER_MODEL, agent_role="developer_self_fix",
+            )
+            fixed.revision = next_revision
+            merged = {f.path: f for f in code.source_files}
+            for f in fixed.source_files:
+                merged[f.path] = f
+            code.source_files = list(merged.values())
+            if fixed.self_test_files:
+                code.self_test_files = fixed.self_test_files
+            _run_self_tests(code)
 
     return code

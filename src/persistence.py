@@ -19,6 +19,7 @@ runs/<task_id>_<timestamp>/
         ...
     generated_project/
         <source files as written by the Developer's latest accepted/final revision>
+        dev_tests/<Developer's own self-tests, kept separate for clarity>
         qa_tests/<QA's independent test files, kept separate for clarity>
 
 To compare a specific run's code, manually copy the
@@ -94,11 +95,28 @@ def save_generated_project(run_dir: str, code: CodeArtifact) -> None:
     files. Called after every Developer revision so the latest code is
     always on disk, not just the final one. The directory is wiped first
     (see _write_source_files) - qa_tests/ (written separately by
-    save_qa_tests, after Tester runs) is intentionally cleared too here,
-    since a fresh Developer revision hasn't been QA-tested yet.
+    save_qa_tests, after Tester runs) and dev_tests/ (written by
+    save_dev_tests, right after this call) are intentionally cleared too
+    here: a fresh Developer revision hasn't been QA-tested/self-tested
+    yet, and leaving a stale qa_tests/ from a previous revision around
+    would make it look like it was tested against code that's no longer
+    on disk. If the workflow ends before Tester re-runs (e.g. hitting
+    MAX_REVISIONS right after a Reviewer rejection), qa_tests/ will
+    simply be absent for that final revision - that's the correct,
+    unambiguous signal that QA never verified it.
     """
     project_dir = os.path.join(run_dir, "generated_project")
     _write_source_files(project_dir, code.source_files)
+
+
+def save_dev_tests(run_dir: str, code: CodeArtifact) -> None:
+    """Persist the Developer's own self-test files, kept separate from
+    QA's independent tests (see dev_tests/ vs qa_tests/) to preserve the
+    independence distinction on disk."""
+    if not code.self_test_files:
+        return
+    dev_dir = os.path.join(run_dir, "generated_project", "dev_tests")
+    _write_source_files(dev_dir, code.self_test_files)
 
 
 def save_qa_tests(run_dir: str, test_results: TestResults) -> None:

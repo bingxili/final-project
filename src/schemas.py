@@ -85,6 +85,18 @@ class CodeArtifact(BaseModel):
     source_files: List[SourceFile]
     notes_for_reviewer: List[str] = Field(default_factory=list)
 
+    # Developer's own self-tests: a fast local sanity check the Developer
+    # runs and self-fixes (at most once) before handing off to Reviewer/QA.
+    # Purely internal - never shown to the Reviewer or QA, which stays
+    # independent. See agents/developer.py for the self-test-and-fix loop.
+    self_test_files: List[SourceFile] = Field(default_factory=list)
+    self_tests_ran: bool = False
+    self_tests_passed: bool = False
+    self_test_total: int = 0
+    self_test_passed_count: int = 0
+    self_test_summary: str = ""
+    self_fix_attempted: bool = False
+
 
 # --------------------------------------------------------------------------
 # 4. Reviewer output

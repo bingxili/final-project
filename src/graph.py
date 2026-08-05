@@ -31,6 +31,7 @@ from src.schemas import (
     WorkflowStatus,
 )
 from src import persistence
+import os
 
 
 class WorkflowState(TypedDict, total=False):
@@ -110,6 +111,7 @@ def _node_developer(state: WorkflowState) -> dict[str, Any]:
     filename = f"03_code_v{code.revision}.json"
     persistence.save_artifact(state["run_dir"], filename, code)
     persistence.save_generated_project(state["run_dir"], code)
+    persistence.save_dev_tests(state["run_dir"], code)
     persistence.append_log(
         state["run_dir"],
         "code_produced",
@@ -117,6 +119,13 @@ def _node_developer(state: WorkflowState) -> dict[str, Any]:
         model=config.DEVELOPER_MODEL,
     )
     _log_stage(f"Developer - done (revision {code.revision})")
+    if code.self_tests_ran:
+        _log_stage(
+            f"Developer self-tests - {'passed' if code.self_tests_passed else 'FAILED'}",
+            total=code.self_test_total,
+            passed=code.self_test_passed_count,
+            self_fix_attempted=code.self_fix_attempted,
+        )
     return {"code": code, "revision_count": revision}
 
 
@@ -237,3 +246,17 @@ def build_graph():
     graph.add_edge("finish", END)
 
     return graph.compile()
+
+if __name__ == "__main__":
+    graph = build_graph()
+
+    print(graph.get_graph().draw_mermaid())
+
+    png = graph.get_graph().draw_mermaid_png()
+    output_path = os.path.join(config.PROJECT_ROOT, "docs", "workflow.png")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    with open(output_path, "wb") as f:
+        f.write(png)
+
+    print(f"Saved to {output_path}")

@@ -89,7 +89,7 @@ MODEL_TPM_LIMIT = int(
 # dynamic safety calculation in llm_client._safe_max_tokens and MAX_TOKENS.
 AGENT_MAX_TOKENS = {
     "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "8000")),
-    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "8000")),
+    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "15000")),
     "review": int(os.getenv("REVIEW_MAX_TOKENS", "8000")),
     "test_result": int(os.getenv("TEST_RESULT_MAX_TOKENS")) if os.getenv("TEST_RESULT_MAX_TOKENS") else None,
     "developer": int(os.getenv("DEVELOPER_MAX_TOKENS")) if os.getenv("DEVELOPER_MAX_TOKENS") else None,
@@ -105,6 +105,14 @@ BACKOFF_MULTIPLIER = float(os.getenv("BACKOFF_MULTIPLIER", "2.0"))
 # Max number of Developer -> Reviewer/Tester revision loops before the
 # workflow is forcibly terminated with status "failed_max_revisions".
 MAX_REVISIONS = int(os.getenv("MAX_REVISIONS", "2"))
+
+# Whether the Developer writes and runs its own self-tests before handing
+# off, and how many self-fix attempts it gets if they fail. This is a
+# separate, internal loop from MAX_REVISIONS above (which governs the
+# external Developer <-> Reviewer/Tester loop) - it's a fast local sanity
+# check, not a replacement for QA's independent testing.
+DEVELOPER_SELF_TEST_ENABLED = os.getenv("DEVELOPER_SELF_TEST_ENABLED", "true").lower() == "true"
+DEVELOPER_SELF_FIX_ATTEMPTS = int(os.getenv("DEVELOPER_SELF_FIX_ATTEMPTS", "1"))
 
 # Timeout (seconds) for executing generated code / tests as subprocesses.
 CODE_EXECUTION_TIMEOUT = int(os.getenv("CODE_EXECUTION_TIMEOUT", "30"))
