@@ -41,14 +41,10 @@ TESTER_MODEL = os.getenv("TESTER_MODEL", LLM_MODEL)
 # deterministic-ish JSON artifacts rather than creative text.
 TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
 
-# Max tokens for a single agent completion. This is a ceiling; the actual
-# value used per call is dynamically reduced (see llm_client.py) to stay
-# under MODEL_TPM_LIMIT once the prompt size for that specific call is
-# known, since providers count (prompt_tokens + max_tokens) against a
-# single per-minute budget and reject the request outright (HTTP 413) if
-# that sum alone exceeds the limit - regardless of how much of the
-# account's per-minute budget has actually been used so far. Default is
-# provider-aware, but can be overridden via the MAX_TOKENS env var if desired.
+# Max tokens for a single agent completion. This is the global ceiling
+# used when a role has no more specific AGENT_MAX_TOKENS entry (see
+# below). Default is provider-aware, but can be overridden via the
+# MAX_TOKENS env var if desired.
 _DEFAULT_MAX_TOKENS_BY_PROVIDER = {
     "groq": 8192,
     "openrouter": 16384,
@@ -57,20 +53,6 @@ MAX_TOKENS = int(
     os.getenv(
         "MAX_TOKENS",
         str(_DEFAULT_MAX_TOKENS_BY_PROVIDER.get(LLM_PROVIDER, 8192)),
-    )
-)
-
-# The tokens-per-minute ceiling for the model/tier you are actually using
-# right now (check the `x-ratelimit-limit-tokens` response header, or your
-# plan's limits on the provider's console).
-_DEFAULT_TPM_LIMIT_BY_PROVIDER = {
-    "groq": 8000,
-    "openrouter": 200_000,
-}
-MODEL_TPM_LIMIT = int(
-    os.getenv(
-        "MODEL_TPM_LIMIT",
-        str(_DEFAULT_TPM_LIMIT_BY_PROVIDER.get(LLM_PROVIDER, 8000)),
     )
 )
 
@@ -84,13 +66,12 @@ MODEL_TPM_LIMIT = int(
 # by default. Optional caps can still be supplied through the corresponding
 # environment variables when needed.
 #
-# These agent-specific limits are independent of provider/model limits.
-# The actual completion budget for every call is still constrained by the
-# dynamic safety calculation in llm_client._safe_max_tokens and MAX_TOKENS.
+# If a role has no entry (or the entry is None), MAX_TOKENS is used as
+# the completion ceiling for that call instead.
 AGENT_MAX_TOKENS = {
-    "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "8000")),
-    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "15000")),
-    "review": int(os.getenv("REVIEW_MAX_TOKENS", "8000")),
+    "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "16384")),
+    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "16384")),
+    "review": int(os.getenv("REVIEW_MAX_TOKENS", "16384")),
     "test_result": int(os.getenv("TEST_RESULT_MAX_TOKENS")) if os.getenv("TEST_RESULT_MAX_TOKENS") else None,
     "developer": int(os.getenv("DEVELOPER_MAX_TOKENS")) if os.getenv("DEVELOPER_MAX_TOKENS") else None,
 }

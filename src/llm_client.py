@@ -141,54 +141,12 @@ def _retry_after_seconds(exc: Exception) -> float | None:
 
 
 
-# Conservative chars-per-token estimate for this content (structured JSON
-# with embedded source code tends to tokenize less efficiently than plain
-# English prose). Deliberately on the low side (i.e. overestimates token
-# count) so the safety margin below is not accidentally eaten into.
-#_CHARS_PER_TOKEN_ESTIMATE = 3.3
-_CHARS_PER_TOKEN_ESTIMATE = 4.0
-
-# Tokens deliberately left unused as a buffer against the token estimate
-# being imperfect (the real tokenizer isn't available to us here).
-_SAFETY_MARGIN_TOKENS = 300
-
-
-def _estimate_tokens(char_count: int) -> int:
-    return int(char_count / _CHARS_PER_TOKEN_ESTIMATE) + 1
-
-
-def _safe_max_tokens(messages: list[dict], agent_role: str | None = None) -> int:
-    prompt_chars = sum(len(m.get("content") or "") for m in messages)
-    estimated_prompt_tokens = _estimate_tokens(prompt_chars)
-
-    budget = (
-        config.MODEL_TPM_LIMIT
-        - estimated_prompt_tokens
-        - _SAFETY_MARGIN_TOKENS
-    )
-
-    print(
-        f"[llm] agent_role={agent_role}, prompt_chars={prompt_chars}, "
-        f"estimated_prompt_tokens={estimated_prompt_tokens}, "
-        f"completion_budget={budget}"
-    )
-
-    if budget < 1500:
-        raise RuntimeError(
-            f"Prompt too large: only {budget} completion tokens remain."
-        )
-
-    ceiling = config.MAX_TOKENS
-    # Non-developer roles produce short, structured artifacts - cap their
-    # completion budget well below the TPM-derived ceiling so they don't
-    # consume more of the per-minute budget than they need. Developer
-    # (agent_role == "developer" or None) is left uncapped beyond the
-    # dynamic TPM budget, since generated code length genuinely varies.
+def _max_completion_tokens(agent_role: str | None = None) -> int:
+    """Completion token ceiling for a call: the agent role's specific cap
+    (config.AGENT_MAX_TOKENS) if one is set, otherwise the global
+    config.MAX_TOKENS default."""
     role_cap = config.AGENT_MAX_TOKENS.get(agent_role) if agent_role else None
-    if role_cap is not None:
-        ceiling = min(ceiling, role_cap)
-
-    return min(ceiling, budget)
+    return role_cap if role_cap is not None else config.MAX_TOKENS
 
 
 def _sanitize_json_string_literals(text: str) -> str:
@@ -250,7 +208,7 @@ def _chat_completion(
     client = get_client()
     backoff = config.INITIAL_BACKOFF_SECONDS
     last_exc: Exception | None = None
-    max_tokens = _safe_max_tokens(messages, agent_role=agent_role)
+    max_tokens = _max_completion_tokens(agent_role=agent_role)
 
     for attempt in range(1, config.MAX_RETRIES + 1):
         print(
