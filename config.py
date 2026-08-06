@@ -22,7 +22,7 @@ OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/ap
 # catalogues, so the "default" naturally differs.
 _DEFAULT_MODEL_BY_PROVIDER = {
     "groq": "openai/gpt-oss-120b",
-    "openrouter": "openai/gpt-oss-20b",
+    "openrouter": "openai/gpt-4o-mini",
 }
 
 # Model used by every agent by default.
@@ -47,7 +47,7 @@ TEMPERATURE = float(os.getenv("TEMPERATURE", "0.2"))
 # MAX_TOKENS env var if desired.
 _DEFAULT_MAX_TOKENS_BY_PROVIDER = {
     "groq": 8192,
-    "openrouter": 16384,
+    "openrouter": 65536,
 }
 MAX_TOKENS = int(
     os.getenv(
@@ -69,9 +69,9 @@ MAX_TOKENS = int(
 # If a role has no entry (or the entry is None), MAX_TOKENS is used as
 # the completion ceiling for that call instead.
 AGENT_MAX_TOKENS = {
-    "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "16384")),
-    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "16384")),
-    "review": int(os.getenv("REVIEW_MAX_TOKENS", "16384")),
+    "requirements": int(os.getenv("REQUIREMENTS_MAX_TOKENS", "32768")),
+    "architecture": int(os.getenv("ARCHITECTURE_MAX_TOKENS", "32768")),
+    "review": int(os.getenv("REVIEW_MAX_TOKENS", "32768")),
     "test_result": int(os.getenv("TEST_RESULT_MAX_TOKENS")) if os.getenv("TEST_RESULT_MAX_TOKENS") else None,
     "developer": int(os.getenv("DEVELOPER_MAX_TOKENS")) if os.getenv("DEVELOPER_MAX_TOKENS") else None,
 }
