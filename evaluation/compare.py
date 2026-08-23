@@ -6,11 +6,11 @@ Compare maintainability metrics between:
       (evaluation/direct_single_assistant_output/<task_id>/generated_project/).
 
 By default, both (a) and (b) resolve to these fixed evaluation/ folders,
-so you first copy the final chosen version of each task's code there
-(see evaluation/direct_single_assistant_output/README.md for the
-baseline convention; for the multi-agent side, copy the
-generated_project/ folder from whichever runs/<task_id>_<timestamp>/
-you want to use as the final result for that task). Pass
+so you first copy the final chosen version of each task's code into both:
+the multi-agent side's generated_project/ folder from whichever
+runs/<task_id>_<timestamp>/ you want to use as the final result for that
+task, and the baseline's code pasted from a single-prompt chat session.
+See evaluation/README.md for the folder conventions for both sides. Pass
 --generated-dir/--baseline-dir explicitly to override either side.
 
 Usage:
@@ -20,7 +20,10 @@ Usage:
 
 Writes:
     evaluation/results/<task_id>_comparison.json   (detailed, per-file + aggregate)
-    evaluation/results/summary.csv                  (one row per task, appended/updated)
+    evaluation/results/summary.csv                  (long/transposed format:
+                                                      one row per metric per task,
+                                                      replacing any prior rows
+                                                      for that task_id)
 """
 from __future__ import annotations
 
@@ -43,21 +46,33 @@ BASELINE_OUTPUT_DIR = os.path.join(EVALUATION_DIR, "data", "direct_single_assist
 CSV_FIELDS = [
     "task_id",
     "compared_at",
-    "multi_agent_dir",
-    "multi_agent_mi",
-    "multi_agent_avg_cc",
-    "multi_agent_max_cc",
-    "multi_agent_sloc",
-    "multi_agent_duplication_pct",
-    "baseline_dir",
-    "baseline_mi",
-    "baseline_avg_cc",
-    "baseline_max_cc",
-    "baseline_sloc",
-    "baseline_duplication_pct",
-    "mi_difference_multi_agent_minus_baseline",
-    "duplication_pct_difference_multi_agent_minus_baseline",
+    "metric",
+    "multi_agent",
+    "baseline",
+    "difference_multi_agent_minus_baseline",
 ]
+
+# (label, summary-dict key) pairs pulled from each side's `production` summary,
+# in the order they should be reported. "duplication" is handled separately
+# since it lives in a sibling "production_duplication" summary key.
+METRIC_FIELDS = [
+    ("Production file count", "file_count"),
+    ("Average MI (mean file MI)", "average_maintainability_index"),
+    ("Minimum MI", "minimum_maintainability_index"),
+    ("Average CC (block-weighted)", "average_cyclomatic_complexity"),
+    ("Max CC", "max_cyclomatic_complexity"),
+    ("Blocks with CC > 10", "blocks_above_cc_10"),
+    ("Total complexity block count", "total_complexity_block_count"),
+    ("LOC", "total_loc"),
+    ("LLOC", "total_lloc"),
+    ("SLOC", "total_sloc"),
+    ("Comments", "total_comments"),
+    ("Blank lines", "total_blank"),
+    ("Avg Halstead Volume", "average_halstead_volume"),
+    ("Avg Halstead Difficulty", "average_halstead_difficulty"),
+    ("Avg Halstead Effort", "average_halstead_effort"),
+]
+DUPLICATION_LABEL = "Duplication %"
 
 
 def _resolve_multi_agent_dir(task_id: str, generated_dir_override: str | None) -> str:
@@ -88,19 +103,43 @@ def _relpath(path: str) -> str:
         return path
 
 
-def _append_summary_row(row: dict) -> None:
+def _forward_filled_task_ids(rows: list[dict]) -> list[str]:
+    """Since only the first row of each task's block carries a `task_id`
+    (blank thereafter, for readability), recover the logical task_id for
+    every row by carrying the last non-blank value forward."""
+    ids = []
+    last = ""
+    for r in rows:
+        tid = r.get("task_id") or ""
+        if tid:
+            last = tid
+        ids.append(last)
+    return ids
+
+
+def _append_summary_rows(task_id: str, rows: list[dict]) -> None:
+    """Replace all summary rows for `task_id` with `rows` (one row per metric).
+
+    Only the first row of `rows` is expected to carry `task_id`/`compared_at`
+    (blank on the rest) so the CSV reads as one grouped block per task
+    instead of repeating those columns on every line.
+    """
     os.makedirs(RESULTS_DIR, exist_ok=True)
     file_exists = os.path.isfile(SUMMARY_CSV)
     existing_rows = []
     if file_exists:
         with open(SUMMARY_CSV, "r", newline="") as fh:
-            # restval/reader handles rows from older/newer schema versions without
-            # misaligning columns; drop any row for the task we're about to rewrite.
-            for r in csv.DictReader(fh):
-                if r.get("task_id") == row["task_id"]:
-                    continue
-                existing_rows.append({field: r.get(field, "") for field in CSV_FIELDS})
-    existing_rows.append(row)
+            raw_rows = list(csv.DictReader(fh))
+        # restval/reader handles rows from older/newer schema versions without
+        # misaligning columns; drop any rows belonging to the task we're
+        # about to rewrite (recovering their logical task_id via forward-fill
+        # since it's only stored on each block's first row).
+        logical_ids = _forward_filled_task_ids(raw_rows)
+        for r, logical_id in zip(raw_rows, logical_ids):
+            if logical_id == task_id:
+                continue
+            existing_rows.append({field: r.get(field, "") for field in CSV_FIELDS})
+    existing_rows.extend(rows)
     with open(SUMMARY_CSV, "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=CSV_FIELDS, extrasaction="ignore")
         writer.writeheader()
@@ -143,54 +182,88 @@ def compare(
 
     multi_prod = multi_summary["production"]
     base_prod = baseline_summary["production"]
-    mi_diff = None
-    if multi_prod["average_maintainability_index"] is not None and base_prod["average_maintainability_index"] is not None:
-        mi_diff = round(
-            multi_prod["average_maintainability_index"] - base_prod["average_maintainability_index"], 2
-        )
 
     multi_dup = multi_summary["production_duplication"]
     base_dup = baseline_summary["production_duplication"]
-    multi_dup_pct = multi_dup["percent_duplicated"] if multi_dup else None
-    base_dup_pct = base_dup["percent_duplicated"] if base_dup else None
-    dup_diff = (
-        round(multi_dup_pct - base_dup_pct, 2)
-        if multi_dup_pct is not None and base_dup_pct is not None
-        else None
-    )
+    multi_dup_pct = multi_dup["duplication_percentage"] if multi_dup else None
+    base_dup_pct = base_dup["duplication_percentage"] if base_dup else None
 
-    _append_summary_row(
+    def _diff(multi_val, base_val):
+        if isinstance(multi_val, (int, float)) and isinstance(base_val, (int, float)):
+            return round(multi_val - base_val, 2)
+        return None
+
+    # One (label, multi_value, base_value, difference) tuple per reported
+    # metric - this drives both the CSV rows and the transposed console table.
+    metric_rows = []
+    for label, key in METRIC_FIELDS:
+        multi_val = multi_prod.get(key)
+        base_val = base_prod.get(key)
+        metric_rows.append((label, multi_val, base_val, _diff(multi_val, base_val)))
+    metric_rows.append((DUPLICATION_LABEL, multi_dup_pct, base_dup_pct, _diff(multi_dup_pct, base_dup_pct)))
+
+    compared_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    # Single combined row for both directories (instead of two sparse rows
+    # each with only one side filled in). Only this first row of the block
+    # carries task_id/compared_at; every row after it leaves them blank so
+    # the CSV reads as one grouped block per task.
+    csv_rows = [
         {
             "task_id": task_id,
-            "compared_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-            "multi_agent_dir": _relpath(multi_agent_dir),
-            "multi_agent_mi": multi_prod["average_maintainability_index"],
-            "multi_agent_avg_cc": multi_prod["average_cyclomatic_complexity"],
-            "multi_agent_max_cc": multi_prod["max_cyclomatic_complexity"],
-            "multi_agent_sloc": multi_prod["total_sloc"],
-            "multi_agent_duplication_pct": multi_dup_pct,
-            "baseline_dir": _relpath(baseline_dir),
-            "baseline_mi": base_prod["average_maintainability_index"],
-            "baseline_avg_cc": base_prod["average_cyclomatic_complexity"],
-            "baseline_max_cc": base_prod["max_cyclomatic_complexity"],
-            "baseline_sloc": base_prod["total_sloc"],
-            "baseline_duplication_pct": base_dup_pct,
-            "mi_difference_multi_agent_minus_baseline": mi_diff,
-            "duplication_pct_difference_multi_agent_minus_baseline": dup_diff,
-        }
-    )
+            "compared_at": compared_at,
+            "metric": "Directories",
+            "multi_agent": _relpath(multi_agent_dir),
+            "baseline": _relpath(baseline_dir),
+            "difference_multi_agent_minus_baseline": "",
+        },
+    ]
+    for label, multi_val, base_val, diff in metric_rows:
+        csv_rows.append(
+            {
+                "task_id": "",
+                "compared_at": "",
+                "metric": label,
+                "multi_agent": multi_val,
+                "baseline": base_val,
+                "difference_multi_agent_minus_baseline": diff,
+            }
+        )
+    _append_summary_rows(task_id, csv_rows)
 
-    print(f"[compare] Multi-agent dir: {multi_agent_dir}")
-    print(f"[compare] Baseline dir:    {baseline_dir}")
-    print(f"[compare] Multi-agent production MI: {multi_prod['average_maintainability_index']}  "
-          f"avg CC: {multi_prod['average_cyclomatic_complexity']}  max CC: {multi_prod['max_cyclomatic_complexity']}  "
-          f"duplication: {multi_dup_pct}%")
-    print(f"[compare] Baseline production MI:    {base_prod['average_maintainability_index']}  "
-          f"avg CC: {base_prod['average_cyclomatic_complexity']}  max CC: {base_prod['max_cyclomatic_complexity']}  "
-          f"duplication: {base_dup_pct}%")
+    _print_transposed_summary(task_id, multi_agent_dir, baseline_dir, metric_rows)
     print(f"[compare] Report written to: {out_path}")
-    print(f"[compare] Summary row updated in: {SUMMARY_CSV}")
+    print(f"[compare] Summary rows updated in: {SUMMARY_CSV}")
     return report
+
+
+def _print_transposed_summary(
+    task_id: str, multi_agent_dir: str, baseline_dir: str, metric_rows: list[tuple]
+) -> None:
+    """Print a human-readable table with one row per metric (transposed),
+    rather than the wide, hard-to-scan single-row-per-task layout."""
+
+    def _fmt(value) -> str:
+        if value is None:
+            return "-"
+        if isinstance(value, float):
+            return f"{value:.2f}"
+        return str(value)
+
+    headers = ("Metric", "Multi-agent", "Baseline", "Diff (multi - baseline)")
+    rows = [(label, _fmt(m), _fmt(b), _fmt(d)) for label, m, b, d in metric_rows]
+    widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
+
+    def _line(cols: tuple) -> str:
+        return "  ".join(col.ljust(widths[i]) for i, col in enumerate(cols))
+
+    print(f"\n[compare] Task: {task_id}")
+    print(f"[compare] Multi-agent dir: {multi_agent_dir}")
+    print(f"[compare] Baseline dir:    {baseline_dir}\n")
+    print(_line(headers))
+    print("  ".join("-" * w for w in widths))
+    for row in rows:
+        print(_line(row))
+    print()
 
 
 def main() -> int:
