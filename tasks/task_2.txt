@@ -1,0 +1,12 @@
+Build a local project management application in Python with a graphical user interface.
+Users should be able to create multiple projects, each containing a configurable Kanban board
+with columns of To Do, In Progress and Done.
+Tasks should have a title, description, priority, tags, due date and status,
+and users should be able to create, edit, delete and move tasks between columns.
+
+The application should support searching and filtering tasks by status, priority, tags and due date.
+It should also provide project-level statistics such as task counts by status, overdue tasks and completion percentage.
+
+Users should be able to define task dependencies,
+and the application should prevent a task from being marked as complete when its dependencies are incomplete.
+

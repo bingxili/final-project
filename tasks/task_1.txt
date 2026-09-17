@@ -1,0 +1,2 @@
+Implement a Gomoku game in Python with a graphical user interface and
+an AI opponent offering three difficulty levels.
