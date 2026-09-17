@@ -1,0 +1,35 @@
+task_id,compared_at,metric,multi_agent,baseline,difference_multi_agent_minus_baseline
+task_1,2026-09-16 18:19:18,Directories,evaluation/data/multi_agent_output/task_1/generated_project,evaluation/data/direct_single_assistant_output/task_1/generated_project,
+,,Production file count,5,1,4
+,,Average MI (mean file MI),56.17,23.88,32.29
+,,Minimum MI,38.52,23.88,14.64
+,,Average CC (block-weighted),4.16,6.17,-2.01
+,,Max CC,22,21,1
+,,Blocks with CC > 10,3,3,0
+,,Total complexity block count,44,24,20
+,,LOC,728,503,225
+,,LLOC,553,366,187
+,,SLOC,546,369,177
+,,Comments,65,55,10
+,,Blank lines,106,68,38
+,,Avg Halstead Volume,895.32,4659.79,-3764.47
+,,Avg Halstead Difficulty,8.27,14.29,-6.02
+,,Avg Halstead Effort,9840.54,66597.88,-56757.34
+,,Duplication %,0.0,3.18,-3.18
+task_2,2026-09-16 18:19:19,Directories,evaluation/data/multi_agent_output/task_2/generated_project,evaluation/data/direct_single_assistant_output/task_2/generated_project,
+,,Production file count,9,1,8
+,,Average MI (mean file MI),52.54,8.18,44.36
+,,Minimum MI,16.36,8.18,8.18
+,,Average CC (block-weighted),3.96,4.57,-0.61
+,,Max CC,19,13,6
+,,Blocks with CC > 10,4,3,1
+,,Total complexity block count,85,37,48
+,,LOC,1211,697,514
+,,LLOC,902,590,312
+,,SLOC,1020,588,432
+,,Comments,32,24,8
+,,Blank lines,159,86,73
+,,Avg Halstead Volume,225.97,1893.95,-1667.98
+,,Avg Halstead Difficulty,3.37,8.49,-5.12
+,,Avg Halstead Effort,1059.73,16084.65,-15024.92
+,,Duplication %,1.16,0.0,1.16

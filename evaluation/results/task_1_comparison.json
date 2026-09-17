@@ -1,0 +1,252 @@
+{
+  "task_id": "task_1",
+  "compared_at": "2026-09-16T18:19:18.141966+00:00",
+  "multi_agent": {
+    "root_dir": "/Users/bingxili/Desktop/Dissertation/final_project/evaluation/data/multi_agent_output/task_1/generated_project",
+    "files": [
+      {
+        "path": "ai.py",
+        "is_test_file": false,
+        "loc": 108,
+        "lloc": 80,
+        "sloc": 74,
+        "comments": 11,
+        "blank": 15,
+        "maintainability_index": 58.88,
+        "average_cyclomatic_complexity": 8.75,
+        "total_cyclomatic_complexity": 35,
+        "max_cyclomatic_complexity": 22,
+        "complexity_block_count": 4,
+        "blocks_above_cc_10": 1,
+        "halstead_volume": 893.4536344224329,
+        "halstead_effort": 11197.952218094491,
+        "halstead_difficulty": 12.533333333333333,
+        "error": null
+      },
+      {
+        "path": "controller.py",
+        "is_test_file": false,
+        "loc": 176,
+        "lloc": 135,
+        "sloc": 135,
+        "comments": 22,
+        "blank": 20,
+        "maintainability_index": 51.61,
+        "average_cyclomatic_complexity": 3.3,
+        "total_cyclomatic_complexity": 33,
+        "max_cyclomatic_complexity": 8,
+        "complexity_block_count": 10,
+        "blocks_above_cc_10": 0,
+        "halstead_volume": 626.3262525549593,
+        "halstead_effort": 3372.0958061664323,
+        "halstead_difficulty": 5.383928571428571,
+        "error": null
+      },
+      {
+        "path": "game.py",
+        "is_test_file": false,
+        "loc": 140,
+        "lloc": 118,
+        "sloc": 104,
+        "comments": 8,
+        "blank": 22,
+        "maintainability_index": 46.13,
+        "average_cyclomatic_complexity": 5.73,
+        "total_cyclomatic_complexity": 63,
+        "max_cyclomatic_complexity": 16,
+        "complexity_block_count": 11,
+        "blocks_above_cc_10": 1,
+        "halstead_volume": 1262.512160198547,
+        "halstead_effort": 12273.535937120052,
+        "halstead_difficulty": 9.721518987341772,
+        "error": null
+      },
+      {
+        "path": "main.py",
+        "is_test_file": false,
+        "loc": 35,
+        "lloc": 21,
+        "sloc": 24,
+        "comments": 3,
+        "blank": 8,
+        "maintainability_index": 85.7,
+        "average_cyclomatic_complexity": 1.0,
+        "total_cyclomatic_complexity": 1,
+        "max_cyclomatic_complexity": 1,
+        "complexity_block_count": 1,
+        "blocks_above_cc_10": 0,
+        "halstead_volume": 4.754887502163469,
+        "halstead_effort": 2.3774437510817346,
+        "halstead_difficulty": 0.5,
+        "error": null
+      },
+      {
+        "path": "ui.py",
+        "is_test_file": false,
+        "loc": 269,
+        "lloc": 199,
+        "sloc": 209,
+        "comments": 21,
+        "blank": 41,
+        "maintainability_index": 38.52,
+        "average_cyclomatic_complexity": 2.83,
+        "total_cyclomatic_complexity": 51,
+        "max_cyclomatic_complexity": 13,
+        "complexity_block_count": 18,
+        "blocks_above_cc_10": 1,
+        "halstead_volume": 1689.5776875999047,
+        "halstead_effort": 22356.733330563027,
+        "halstead_difficulty": 13.232142857142858,
+        "error": null
+      },
+      {
+        "path": "dev_tests/tests/test_model_and_ai.py",
+        "is_test_file": true,
+        "loc": 53,
+        "lloc": 44,
+        "sloc": 44,
+        "comments": 3,
+        "blank": 6,
+        "maintainability_index": 59.63,
+        "average_cyclomatic_complexity": 5.0,
+        "total_cyclomatic_complexity": 20,
+        "max_cyclomatic_complexity": 9,
+        "complexity_block_count": 4,
+        "blocks_above_cc_10": 0,
+        "halstead_volume": 294.6653602539946,
+        "halstead_effort": 1710.960156313517,
+        "halstead_difficulty": 5.806451612903226,
+        "error": null
+      }
+    ],
+    "summary": {
+      "root_dir": "/Users/bingxili/Desktop/Dissertation/final_project/evaluation/data/multi_agent_output/task_1/generated_project",
+      "production": {
+        "file_count": 5,
+        "total_loc": 728,
+        "total_lloc": 553,
+        "total_sloc": 546,
+        "total_comments": 65,
+        "total_blank": 106,
+        "average_maintainability_index": 56.17,
+        "minimum_maintainability_index": 38.52,
+        "average_cyclomatic_complexity": 4.16,
+        "max_cyclomatic_complexity": 22,
+        "total_complexity_block_count": 44,
+        "blocks_above_cc_10": 3,
+        "average_halstead_volume": 895.32,
+        "average_halstead_difficulty": 8.27,
+        "average_halstead_effort": 9840.54
+      },
+      "tests": {
+        "file_count": 1,
+        "total_loc": 53,
+        "total_lloc": 44,
+        "total_sloc": 44,
+        "total_comments": 3,
+        "total_blank": 6,
+        "average_maintainability_index": 59.63,
+        "minimum_maintainability_index": 59.63,
+        "average_cyclomatic_complexity": 5.0,
+        "max_cyclomatic_complexity": 9,
+        "total_complexity_block_count": 4,
+        "blocks_above_cc_10": 0,
+        "average_halstead_volume": 294.67,
+        "average_halstead_difficulty": 5.81,
+        "average_halstead_effort": 1710.96
+      },
+      "files_with_errors": [],
+      "production_duplication": {
+        "total_lines": 728,
+        "duplicated_lines": 0,
+        "duplication_percentage": 0.0,
+        "duplicate_groups": []
+      }
+    }
+  },
+  "baseline_single_prompt": {
+    "root_dir": "/Users/bingxili/Desktop/Dissertation/final_project/evaluation/data/direct_single_assistant_output/task_1/generated_project",
+    "files": [
+      {
+        "path": "gomoku.py",
+        "is_test_file": false,
+        "loc": 503,
+        "lloc": 366,
+        "sloc": 369,
+        "comments": 55,
+        "blank": 68,
+        "maintainability_index": 23.88,
+        "average_cyclomatic_complexity": 6.17,
+        "total_cyclomatic_complexity": 148,
+        "max_cyclomatic_complexity": 21,
+        "complexity_block_count": 24,
+        "blocks_above_cc_10": 3,
+        "halstead_volume": 4659.789752120199,
+        "halstead_effort": 66597.8800856117,
+        "halstead_difficulty": 14.29203539823009,
+        "error": null
+      }
+    ],
+    "summary": {
+      "root_dir": "/Users/bingxili/Desktop/Dissertation/final_project/evaluation/data/direct_single_assistant_output/task_1/generated_project",
+      "production": {
+        "file_count": 1,
+        "total_loc": 503,
+        "total_lloc": 366,
+        "total_sloc": 369,
+        "total_comments": 55,
+        "total_blank": 68,
+        "average_maintainability_index": 23.88,
+        "minimum_maintainability_index": 23.88,
+        "average_cyclomatic_complexity": 6.17,
+        "max_cyclomatic_complexity": 21,
+        "total_complexity_block_count": 24,
+        "blocks_above_cc_10": 3,
+        "average_halstead_volume": 4659.79,
+        "average_halstead_difficulty": 14.29,
+        "average_halstead_effort": 66597.88
+      },
+      "tests": {
+        "file_count": 0,
+        "total_loc": 0,
+        "total_lloc": 0,
+        "total_sloc": 0,
+        "total_comments": 0,
+        "total_blank": 0,
+        "average_maintainability_index": null,
+        "minimum_maintainability_index": null,
+        "average_cyclomatic_complexity": null,
+        "max_cyclomatic_complexity": null,
+        "total_complexity_block_count": 0,
+        "blocks_above_cc_10": 0,
+        "average_halstead_volume": null,
+        "average_halstead_difficulty": null,
+        "average_halstead_effort": null
+      },
+      "files_with_errors": [],
+      "production_duplication": {
+        "total_lines": 503,
+        "duplicated_lines": 16,
+        "duplication_percentage": 3.18,
+        "duplicate_groups": [
+          {
+            "duplicated_lines": 8,
+            "tokens": 55,
+            "occurrences": [
+              {
+                "file": "gomoku.py",
+                "start_line": 387,
+                "end_line": 394
+              },
+              {
+                "file": "gomoku.py",
+                "start_line": 412,
+                "end_line": 419
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
