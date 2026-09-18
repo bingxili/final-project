@@ -1,0 +1,354 @@
+{
+  "revision_tested": 0,
+  "qa_test_cases": [
+    {
+      "id": "TC-01",
+      "description": "Create project 'Alpha' results in an empty project and (service-level) readiness for a three-column board",
+      "related_acceptance_criteria": [
+        "AC-1"
+      ]
+    },
+    {
+      "id": "TC-02",
+      "description": "Switching active project from Alpha to Beta updates active project and isolates tasks per project",
+      "related_acceptance_criteria": [
+        "AC-2"
+      ]
+    },
+    {
+      "id": "TC-03",
+      "description": "Renaming a project preserves its tasks unchanged",
+      "related_acceptance_criteria": [
+        "AC-3"
+      ]
+    },
+    {
+      "id": "TC-04",
+      "description": "Deleting a project removes it and its tasks (confirmation is a UI concern and not invoked here)",
+      "related_acceptance_criteria": [
+        "AC-4"
+      ]
+    },
+    {
+      "id": "TC-05",
+      "description": "Persistence: after restart, created project and its task remain with fields unchanged",
+      "related_acceptance_criteria": [
+        "AC-5"
+      ]
+    },
+    {
+      "id": "TC-06",
+      "description": "Creating a task with title, priority High, tags ['docs'], and no due date defaults status to To Do and shows tag",
+      "related_acceptance_criteria": [
+        "AC-6"
+      ]
+    },
+    {
+      "id": "TC-07",
+      "description": "Editing a task updates description, priority to High, adds 'review' tag, and sets due date 2026-09-20",
+      "related_acceptance_criteria": [
+        "AC-7"
+      ]
+    },
+    {
+      "id": "TC-08",
+      "description": "Moving a task from To Do to In Progress updates status and visibility (service-level)",
+      "related_acceptance_criteria": [
+        "AC-8"
+      ]
+    },
+    {
+      "id": "TC-09",
+      "description": "Moving a task from In Progress back to To Do updates status and visibility (service-level)",
+      "related_acceptance_criteria": [
+        "AC-9"
+      ]
+    },
+    {
+      "id": "TC-10",
+      "description": "Deleting a task with no dependents removes it and it remains deleted after restart",
+      "related_acceptance_criteria": [
+        "AC-10"
+      ]
+    },
+    {
+      "id": "TC-11",
+      "description": "Deleting a task with dependents is blocked and dependents are reported",
+      "related_acceptance_criteria": [
+        "AC-11"
+      ]
+    },
+    {
+      "id": "TC-12",
+      "description": "Setting B to depend on A is reflected in B’s dependencies",
+      "related_acceptance_criteria": [
+        "AC-12"
+      ]
+    },
+    {
+      "id": "TC-13",
+      "description": "Blocking completion to Done via status change when dependencies are incomplete",
+      "related_acceptance_criteria": [
+        "AC-13"
+      ]
+    },
+    {
+      "id": "TC-14",
+      "description": "Blocking completion to Done via move to Done when dependencies are incomplete",
+      "related_acceptance_criteria": [
+        "AC-13"
+      ]
+    },
+    {
+      "id": "TC-15",
+      "description": "Moving to In Progress is allowed even when dependencies are incomplete",
+      "related_acceptance_criteria": [
+        "AC-14"
+      ]
+    },
+    {
+      "id": "TC-16",
+      "description": "Prevent saving circular dependencies (A depends on B when B already depends on A)",
+      "related_acceptance_criteria": [
+        "AC-15"
+      ]
+    },
+    {
+      "id": "TC-17",
+      "description": "Filter by Status [In Progress] AND Priority [High] shows only matching tasks",
+      "related_acceptance_criteria": [
+        "AC-16"
+      ]
+    },
+    {
+      "id": "TC-18",
+      "description": "Filter by Tags ['UI','API'] (OR, case-insensitive) shows tasks containing 'UI' only",
+      "related_acceptance_criteria": [
+        "AC-17"
+      ]
+    },
+    {
+      "id": "TC-19",
+      "description": "Due date range filter [2026-09-01, 2026-09-15] includes 2026-09-10 and excludes 2026-09-20 and None",
+      "related_acceptance_criteria": [
+        "AC-18"
+      ]
+    },
+    {
+      "id": "TC-20",
+      "description": "Clearing filters semantics: with no filters applied, all tasks are returned (UI control clearing not asserted)",
+      "related_acceptance_criteria": [
+        "AC-19"
+      ]
+    },
+    {
+      "id": "TC-21",
+      "description": "Statistics: counts by status, overdue count, and completion percent for specified scenario",
+      "related_acceptance_criteria": [
+        "AC-20"
+      ]
+    },
+    {
+      "id": "TC-22",
+      "description": "Overdue count uses local 'today'; after marking task Done, overdue decreases and completion increases",
+      "related_acceptance_criteria": [
+        "AC-21"
+      ]
+    },
+    {
+      "id": "TC-23",
+      "description": "Invalid due date is rejected and previous valid due date remains unchanged (service and validator)",
+      "related_acceptance_criteria": [
+        "AC-22"
+      ]
+    },
+    {
+      "id": "TC-24",
+      "description": "Invalid priority is rejected and previous valid priority remains unchanged (service and validator)",
+      "related_acceptance_criteria": [
+        "AC-23"
+      ]
+    },
+    {
+      "id": "TC-25",
+      "description": "Adding then removing a tag reflects on the task’s tags",
+      "related_acceptance_criteria": [
+        "AC-24"
+      ]
+    }
+  ],
+  "qa_test_files": [
+    {
+      "path": "tests/conftest.py",
+      "content": "import pathlib\nimport pytest\n\nimport models\nimport persistence\nimport services\n\n\n@pytest.fixture\ndef env(tmp_path: pathlib.Path):\n    # Create a fresh repository in a temporary directory and return constructed services.\n    repo = persistence.JsonRepository(root_dir=tmp_path, autosave=False)\n    state = repo.load()\n    project_service = services.ProjectService(state, repo)\n    task_service = services.TaskService(state, repo)\n    return {\"repo\": repo, \"state\": state, \"projects\": project_service, \"tasks\": task_service}"
+    },
+    {
+      "path": "tests/test_project_and_persistence.py",
+      "content": "import pathlib\n\nimport models\nimport services\nimport persistence\n\n\ndef test_create_project_ac1(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    assert isinstance(proj, models.Project)\n    assert proj.name == \"Alpha\"\n\n    # The board columns are a UI concern; here we assert the project is created empty.\n    assert ts.list_tasks(proj.id) == []\n\n\ndef test_switch_active_project_ac2(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    state = env[\"state\"]\n\n    alpha = ps.create_project(\"Alpha\")\n    beta = ps.create_project(\"Beta\")\n\n    t_alpha = ts.create_task(alpha.id, title=\"A1\", priority=\"Low\")\n    t_beta = ts.create_task(beta.id, title=\"B1\", priority=\"High\")\n\n    # Switch active project to Beta\n    active = ps.set_active_project(beta.id)\n    assert active.id == beta.id\n    assert state.get_active_project() is active\n\n    # Ensure tasks are isolated per project\n    alpha_tasks = ts.list_tasks(alpha.id)\n    beta_tasks = ts.list_tasks(beta.id)\n    assert {t.id for t in alpha_tasks} == {t_alpha.id}\n    assert {t.id for t in beta_tasks} == {t_beta.id}\n\n\ndef test_rename_project_ac3(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    t1 = ts.create_task(proj.id, title=\"Task1\", priority=\"Medium\")\n    t2 = ts.create_task(proj.id, title=\"Task2\", priority=\"High\")\n\n    renamed = ps.rename_project(proj.id, \"Gamma\")\n    assert renamed.id == proj.id\n    assert renamed.name == \"Gamma\"\n\n    # Tasks remain unchanged\n    titles = sorted(t.title for t in ts.list_tasks(proj.id))\n    assert titles == [\"Task1\", \"Task2\"]\n\n\ndef test_delete_project_ac4(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    alpha = ps.create_project(\"Alpha\")\n    beta = ps.create_project(\"Beta\")\n    ts.create_task(alpha.id, title=\"A1\", priority=\"Low\")\n    ts.create_task(beta.id, title=\"B1\", priority=\"High\")\n\n    # Delete Alpha (UI confirmation is not part of the services contract)\n    ps.delete_project(alpha.id)\n\n    names = [p.name for p in ps.list_projects()]\n    assert \"Alpha\" not in names\n    assert \"Beta\" in names\n\n\ndef test_persistence_ac5(tmp_path):\n    # Build initial services\n    repo = persistence.JsonRepository(root_dir=tmp_path, autosave=False)\n    state = repo.load()\n    ps = services.ProjectService(state, repo)\n    ts = services.TaskService(state, repo)\n\n    proj = ps.create_project(\"Alpha\")\n    ps.set_active_project(proj.id)\n    created = ts.create_task(proj.id, title=\"Persist me\", priority=\"High\", tags=[\"docs\"])\n\n    # Explicit save to simulate persisted app state\n    repo.save(state)\n\n    # \"Restart\": new repo/services loading from the same directory\n    repo2 = persistence.JsonRepository(root_dir=tmp_path, autosave=False)\n    state2 = repo2.load()\n    ps2 = services.ProjectService(state2, repo2)\n    ts2 = services.TaskService(state2, repo2)\n\n    # Verify project and task persisted with fields unchanged\n    projects = ps2.list_projects()\n    assert any(p.name == \"Alpha\" for p in projects)\n    # Find the project by id (should be the same id)\n    project2 = next(p for p in projects if p.id == proj.id)\n    tasks2 = ts2.list_tasks(project2.id)\n    assert len(tasks2) == 1\n    t2 = tasks2[0]\n    assert t2.title == \"Persist me\"\n    assert \"docs\" in t2.tags\n    assert t2.priority == \"High\"\n    assert t2.due_date is None"
+    },
+    {
+      "path": "tests/test_tasks_crud_and_moves.py",
+      "content": "import services\n\n\ndef test_create_task_ac6(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    task = ts.create_task(proj.id, title=\"Write spec\", priority=\"High\", tags=[\"docs\"])\n\n    assert task.title == \"Write spec\"\n    assert task.priority == \"High\"\n    assert \"docs\" in task.tags\n    assert task.due_date is None\n    # Defaults to To Do if no status chosen\n    assert task.status == \"To Do\"\n\n\ndef test_edit_task_ac7(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    task = ts.create_task(proj.id, title=\"Edit me\", priority=\"Medium\", tags=[\"docs\"])\n\n    edited = ts.edit_task(\n        proj.id,\n        task.id,\n        description=\"Updated description\",\n        priority=\"High\",\n        tags=[\"docs\", \"review\"],\n        due_date=\"2026-09-20\",\n        due_date_set=True,\n    )\n\n    assert edited.description == \"Updated description\"\n    assert edited.priority == \"High\"\n    assert \"review\" in edited.tags\n    assert str(edited.due_date) == \"2026-09-20\"\n\n\ndef test_move_task_to_in_progress_ac8(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    task = ts.create_task(proj.id, title=\"Move me\", priority=\"Low\")\n\n    moved = ts.move_task_between_columns(proj.id, task.id, \"In Progress\")\n    assert moved.status == \"In Progress\"\n\n\ndef test_move_task_back_to_todo_ac9(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    task = ts.create_task(proj.id, title=\"Back and forth\", priority=\"Medium\")\n    ts.move_task_between_columns(proj.id, task.id, \"In Progress\")\n\n    moved_back = ts.move_task_between_columns(proj.id, task.id, \"To Do\")\n    assert moved_back.status == \"To Do\"\n\n\ndef test_delete_task_persists_ac10(tmp_path):\n    # Setup\n    import persistence\n\n    repo = persistence.JsonRepository(root_dir=tmp_path, autosave=False)\n    state = repo.load()\n    ps = services.ProjectService(state, repo)\n    ts = services.TaskService(state, repo)\n\n    proj = ps.create_project(\"Alpha\")\n    task = ts.create_task(proj.id, title=\"Temp\", priority=\"Low\")\n\n    # Delete and save\n    ts.delete_task(proj.id, task.id)\n    repo.save(state)\n\n    # Reload\n    repo2 = persistence.JsonRepository(root_dir=tmp_path, autosave=False)\n    state2 = repo2.load()\n    ps2 = services.ProjectService(state2, repo2)\n    ts2 = services.TaskService(state2, repo2)\n    proj2 = next(p for p in ps2.list_projects() if p.id == proj.id)\n\n    tasks_after = ts2.list_tasks(proj2.id)\n    assert all(t.id != task.id for t in tasks_after)\n    assert tasks_after == []"
+    },
+    {
+      "path": "tests/test_dependencies_and_blocking.py",
+      "content": "import pytest\n\nimport exceptions\nimport services\n\n\ndef setup_two_tasks_with_dependency(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n    a = ts.create_task(proj.id, title=\"Task A\", priority=\"Low\")\n    b = ts.create_task(proj.id, title=\"Task B\", priority=\"Medium\")\n    ts.set_dependencies(proj.id, b.id, [a.id])  # B depends on A\n    return proj, a, b\n\n\ndef test_delete_task_blocked_by_dependents_ac11(env):\n    proj, a, b = setup_two_tasks_with_dependency(env)\n    ts = env[\"tasks\"]\n\n    with pytest.raises(exceptions.DeletionBlockedError) as ei:\n        ts.delete_task(proj.id, a.id)\n\n    err = ei.value\n    # Prefer the structured dependents attribute if provided\n    dependents = getattr(err, \"dependents\", None)\n    if dependents is not None:\n        assert b.id in dependents\n    else:\n        # Fall back to message content check\n        assert b.id in str(err) or \"Task B\" in str(err)\n\n    # Ensure neither task was deleted due to the block\n    remaining_ids = {t.id for t in ts.list_tasks(proj.id)}\n    assert a.id in remaining_ids and b.id in remaining_ids\n\n\ndef test_set_dependencies_reflected_in_details_ac12(env):\n    proj, a, b = setup_two_tasks_with_dependency(env)\n    ts = env[\"tasks\"]\n\n    b_fetched = ts.get_task(proj.id, b.id)\n    assert a.id in b_fetched.dependencies\n\n\ndef test_blocked_completion_status_change_ac13(env):\n    proj, a, b = setup_two_tasks_with_dependency(env)\n    ts = env[\"tasks\"]\n\n    with pytest.raises(exceptions.BlockedCompletionError) as ei:\n        ts.set_task_status(proj.id, b.id, \"Done\")\n\n    err = ei.value\n    blockers = getattr(err, \"blocking_dependencies\", None)\n    if blockers is not None:\n        assert a.id in blockers\n    # Status must remain not Done\n    b_after = ts.get_task(proj.id, b.id)\n    assert b_after.status != \"Done\"\n\n\ndef test_blocked_completion_move_to_done_ac13(env):\n    proj, a, b = setup_two_tasks_with_dependency(env)\n    ts = env[\"tasks\"]\n\n    with pytest.raises(exceptions.BlockedCompletionError):\n        ts.move_task_between_columns(proj.id, b.id, \"Done\")\n\n    b_after = ts.get_task(proj.id, b.id)\n    assert b_after.status != \"Done\"\n\n\ndef test_move_to_in_progress_allowed_ac14(env):\n    proj, a, b = setup_two_tasks_with_dependency(env)\n    ts = env[\"tasks\"]\n\n    moved = ts.set_task_status(proj.id, b.id, \"In Progress\")\n    assert moved.status == \"In Progress\"\n\n\ndef test_circular_dependency_prevented_ac15(env):\n    proj, a, b = setup_two_tasks_with_dependency(env)\n    ts = env[\"tasks\"]\n\n    # Attempt to make A depend on B, which would create a cycle\n    with pytest.raises(exceptions.DependencyCycleError):\n        ts.set_dependencies(proj.id, a.id, [b.id])"
+    },
+    {
+      "path": "tests/test_filters_and_stats.py",
+      "content": "import datetime\n\nimport filters\nimport stats\nimport services\n\n\ndef build_three_tasks_for_filters(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n    t1 = ts.create_task(proj.id, title=\"IP-High\", priority=\"High\", status=\"In Progress\")\n    t2 = ts.create_task(proj.id, title=\"IP-Med\", priority=\"Medium\", status=\"In Progress\")\n    t3 = ts.create_task(proj.id, title=\"TD-High\", priority=\"High\", status=\"To Do\")\n    return proj, t1, t2, t3\n\n\ndef test_filter_status_and_priority_ac16(env):\n    proj, t1, t2, t3 = build_three_tasks_for_filters(env)\n    ts = env[\"tasks\"]\n\n    all_tasks = ts.list_tasks(proj.id)\n    result = filters.filter_tasks(\n        all_tasks,\n        status={\"In Progress\"},\n        priorities={\"High\"},\n    )\n    ids = {t.id for t in result}\n    assert ids == {t1.id}\n\n\ndef test_filter_tags_or_case_insensitive_ac17(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n    ui = ts.create_task(proj.id, title=\"UI\", priority=\"Low\", tags=[\"UI\"])\n    backend = ts.create_task(proj.id, title=\"Backend\", priority=\"Low\", tags=[\"Backend\"])\n    docs = ts.create_task(proj.id, title=\"Docs\", priority=\"Low\", tags=[\"Docs\"])\n\n    all_tasks = ts.list_tasks(proj.id)\n    result = filters.filter_tasks(all_tasks, tags_any_of={\"ui\", \"API\"})\n    ids = {t.id for t in result}\n    assert ids == {ui.id}\n\n\ndef test_filter_due_date_range_inclusive_and_excludes_none_ac18(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n    d1 = ts.create_task(proj.id, title=\"D1\", priority=\"Low\", due_date=\"2026-09-10\")\n    d2 = ts.create_task(proj.id, title=\"D2\", priority=\"Low\", due_date=\"2026-09-20\")\n    d3 = ts.create_task(proj.id, title=\"NoDue\", priority=\"Low\")\n\n    all_tasks = ts.list_tasks(proj.id)\n    result = filters.filter_tasks(\n        all_tasks,\n        due_date_start=\"2026-09-01\",\n        due_date_end=\"2026-09-15\",\n    )\n    ids = {t.id for t in result}\n    assert ids == {d1.id}\n\n\ndef test_clear_filters_semantics_ac19(env):\n    # UI control clearing cannot be asserted via public UI API; instead verify that no filters returns all tasks.\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n    t1 = ts.create_task(proj.id, title=\"A\", priority=\"Low\")\n    t2 = ts.create_task(proj.id, title=\"B\", priority=\"High\", status=\"In Progress\")\n\n    all_tasks = ts.list_tasks(proj.id)\n    # Apply some filter to change the result\n    filtered = filters.filter_tasks(all_tasks, priorities={\"High\"})\n    assert {t.id for t in filtered} == {t2.id}\n\n    # Clearing filters semantics: calling with no criteria returns all tasks\n    cleared = filters.filter_tasks(all_tasks)\n    assert {t.id for t in cleared} == {t1.id, t2.id}\n\n\ndef test_statistics_counts_and_completion_ac20(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n\n    # Create tasks: 2 Done, 1 In Progress, 2 To Do\n    td1 = ts.create_task(proj.id, title=\"TD1\", priority=\"Low\")  # To Do\n    td2 = ts.create_task(proj.id, title=\"TD2\", priority=\"Low\", due_date=\"2026-09-10\")  # To Do, overdue (incomplete) for today=2026-09-11\n    ip = ts.create_task(proj.id, title=\"IP\", priority=\"Medium\", status=\"In Progress\")\n    d1 = ts.create_task(proj.id, title=\"D1\", priority=\"High\", status=\"Done\")\n    d2 = ts.create_task(proj.id, title=\"D2\", priority=\"High\", status=\"Done\")\n\n    today = datetime.date(2026, 9, 11)\n    s = stats.compute_statistics(proj, today=today)\n\n    assert s[\"todo_count\"] == 2\n    assert s[\"in_progress_count\"] == 1\n    assert s[\"done_count\"] == 2\n    assert s[\"overdue_count\"] == 1\n    assert s[\"completion_percent\"] == 40\n\n\ndef test_statistics_overdue_and_update_when_done_ac21(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n    proj = ps.create_project(\"Alpha\")\n\n    t = ts.create_task(proj.id, title=\"Overdue soon\", priority=\"High\", due_date=\"2026-09-10\")\n    today = datetime.date(2026, 9, 11)\n\n    s1 = stats.compute_statistics(proj, today=today)\n    assert s1[\"overdue_count\"] == 1\n    assert s1[\"completion_percent\"] == 0\n\n    # Mark as Done; no dependencies in this test\n    ts.set_task_status(proj.id, t.id, \"Done\")\n    s2 = stats.compute_statistics(proj, today=today)\n    assert s2[\"overdue_count\"] == 0\n    assert s2[\"completion_percent\"] == 100"
+    },
+    {
+      "path": "tests/test_validation.py",
+      "content": "import datetime\n\nimport pytest\n\nimport services\nimport validation\n\n\ndef test_invalid_due_date_rejected_and_unchanged_ac22(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    t = ts.create_task(proj.id, title=\"With due\", priority=\"Medium\", due_date=\"2026-09-10\")\n    assert str(t.due_date) == \"2026-09-10\"\n\n    # Attempt to set an invalid due date; expect rejection and previous value preserved\n    with pytest.raises((ValueError,)):\n        ts.edit_task(proj.id, t.id, due_date=\"2026-13-40\", due_date_set=True)\n\n    t_after = ts.get_task(proj.id, t.id)\n    assert str(t_after.due_date) == \"2026-09-10\"\n\n\ndef test_parse_due_date_invalid_ac22_validation():\n    with pytest.raises(ValueError):\n        validation.parse_due_date(\"2026-13-40\")\n\n\ndef test_invalid_priority_rejected_and_unchanged_ac23(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    t = ts.create_task(proj.id, title=\"Priority test\", priority=\"Medium\")\n    assert t.priority == \"Medium\"\n\n    with pytest.raises((ValueError,)):\n        ts.edit_task(proj.id, t.id, priority=\"Critical\")\n\n    t_after = ts.get_task(proj.id, t.id)\n    assert t_after.priority == \"Medium\"\n\n\ndef test_validate_priority_invalid_ac23_validation():\n    with pytest.raises(ValueError):\n        validation.validate_priority(\"Critical\")\n\n\ndef test_add_remove_tags_ac24(env):\n    ps = env[\"projects\"]\n    ts = env[\"tasks\"]\n\n    proj = ps.create_project(\"Alpha\")\n    t = ts.create_task(proj.id, title=\"Tag me\", priority=\"Low\")\n    assert t.tags == [] or t.tags is None or len(t.tags) == 0\n\n    t_with_tag = ts.add_tag(proj.id, t.id, \"backend\")\n    assert \"backend\" in t_with_tag.tags\n\n    t_without_tag = ts.remove_tag(proj.id, t.id, \"backend\")\n    assert \"backend\" not in t_without_tag.tags"
+    }
+  ],
+  "executed": true,
+  "passed": true,
+  "stdout": "...........................                                              [100%]\n27 passed in 0.09s\n",
+  "stderr": "",
+  "return_code": 0,
+  "total_tests": 27,
+  "passed_tests": 27,
+  "failed_tests": 0,
+  "pass_rate": 1.0,
+  "test_case_results": [
+    {
+      "name": "tests.test_dependencies_and_blocking::test_delete_task_blocked_by_dependents_ac11",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_dependencies_and_blocking::test_set_dependencies_reflected_in_details_ac12",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_dependencies_and_blocking::test_blocked_completion_status_change_ac13",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_dependencies_and_blocking::test_blocked_completion_move_to_done_ac13",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_dependencies_and_blocking::test_move_to_in_progress_allowed_ac14",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_dependencies_and_blocking::test_circular_dependency_prevented_ac15",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_filters_and_stats::test_filter_status_and_priority_ac16",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_filters_and_stats::test_filter_tags_or_case_insensitive_ac17",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_filters_and_stats::test_filter_due_date_range_inclusive_and_excludes_none_ac18",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_filters_and_stats::test_clear_filters_semantics_ac19",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_filters_and_stats::test_statistics_counts_and_completion_ac20",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_filters_and_stats::test_statistics_overdue_and_update_when_done_ac21",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_project_and_persistence::test_create_project_ac1",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_project_and_persistence::test_switch_active_project_ac2",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_project_and_persistence::test_rename_project_ac3",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_project_and_persistence::test_delete_project_ac4",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_project_and_persistence::test_persistence_ac5",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_tasks_crud_and_moves::test_create_task_ac6",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_tasks_crud_and_moves::test_edit_task_ac7",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_tasks_crud_and_moves::test_move_task_to_in_progress_ac8",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_tasks_crud_and_moves::test_move_task_back_to_todo_ac9",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_tasks_crud_and_moves::test_delete_task_persists_ac10",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_validation::test_invalid_due_date_rejected_and_unchanged_ac22",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_validation::test_parse_due_date_invalid_ac22_validation",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_validation::test_invalid_priority_rejected_and_unchanged_ac23",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_validation::test_validate_priority_invalid_ac23_validation",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_validation::test_add_remove_tags_ac24",
+      "outcome": "passed",
+      "message": ""
+    }
+  ],
+  "qa_summary": "The tests exercise project and task management via services, persistence across restarts using a temporary repository, validation and error handling, dependency rules (including circular prevention and blocking completion), filtering semantics (status, priority, tags OR, due date inclusive and excluding None), and statistics computation. UI-only behaviors (e.g., visible columns, filter control clearing) are not directly asserted due to lack of introspectable UI interfaces, but equivalent service-level outcomes are verified where possible.",
+  "summary": "27/27 tests passed (100%)."
+}

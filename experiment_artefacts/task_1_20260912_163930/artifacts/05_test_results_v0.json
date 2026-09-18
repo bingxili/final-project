@@ -1,0 +1,197 @@
+{
+  "revision_tested": 0,
+  "qa_test_cases": [
+    {
+      "id": "TC-AC1",
+      "description": "Initialize controller with defaults and start a new game; verify 15x15 board render and status displays for Medium difficulty and Human starter with Human/Black to move",
+      "related_acceptance_criteria": [
+        "AC-1"
+      ]
+    },
+    {
+      "id": "TC-AC2-AC3",
+      "description": "Human places a stone at center; verify single Black stone placement, turn switches to AI; then AI (Medium) places one legal White stone within 1.0s and turn returns to Human",
+      "related_acceptance_criteria": [
+        "AC-2",
+        "AC-3"
+      ]
+    },
+    {
+      "id": "TC-AC4",
+      "description": "Attempt to place a stone on an occupied intersection; verify no board change, no turn change, and invalid feedback is triggered",
+      "related_acceptance_criteria": [
+        "AC-4"
+      ]
+    },
+    {
+      "id": "TC-AC6",
+      "description": "Change difficulty to Easy, make a human move, and verify the next AI move occurs within 0.5s and is a single legal placement",
+      "related_acceptance_criteria": [
+        "AC-6"
+      ]
+    },
+    {
+      "id": "TC-AC9",
+      "description": "Set Starter to AI and start a new game; verify AI (Black) makes the first move promptly and status indicates AI-to-move initially then Human turn",
+      "related_acceptance_criteria": [
+        "AC-9"
+      ]
+    },
+    {
+      "id": "TC-AC10",
+      "description": "During a game, click New Game without changing settings; verify the board clears, move history resets, and difficulty/starter remain unchanged",
+      "related_acceptance_criteria": [
+        "AC-10"
+      ]
+    },
+    {
+      "id": "TC-AC11",
+      "description": "Change difficulty from Medium to Easy mid-game; verify the next AI move respects the Easy timing limit and difficulty indicator updates",
+      "related_acceptance_criteria": [
+        "AC-11"
+      ]
+    },
+    {
+      "id": "TC-AC14",
+      "description": "After consecutive moves (Human then AI), verify that last_move provided to the view updates to the most recent stone each time",
+      "related_acceptance_criteria": [
+        "AC-14"
+      ]
+    },
+    {
+      "id": "TC-AC15",
+      "description": "Invoke Quit; verify the application requests clean shutdown without errors",
+      "related_acceptance_criteria": [
+        "AC-15"
+      ]
+    },
+    {
+      "id": "TC-AC7",
+      "description": "With Medium difficulty, in a state where Human has four-in-a-row with exactly one blocking point and it is AI's turn, verify compute_best_move returns the blocking move",
+      "related_acceptance_criteria": [
+        "AC-7"
+      ]
+    },
+    {
+      "id": "TC-AC8",
+      "description": "With Hard difficulty, in a state where AI has a win-in-one and it is AI's turn, verify compute_best_move returns the winning move",
+      "related_acceptance_criteria": [
+        "AC-8"
+      ]
+    },
+    {
+      "id": "TC-AC12",
+      "description": "Verify win detection on a five-in-a-row using check_winner, returning correct winner and winning line",
+      "related_acceptance_criteria": [
+        "AC-12"
+      ]
+    },
+    {
+      "id": "TC-AC13",
+      "description": "Verify draw detection on a completely filled checkerboard (no five-in-a-row) using board_full",
+      "related_acceptance_criteria": [
+        "AC-13"
+      ]
+    },
+    {
+      "id": "TC-AC16",
+      "description": "Measure AI compute times across Easy/Medium/Hard using compute_best_move on a mid-game position; verify within respective time limits",
+      "related_acceptance_criteria": [
+        "AC-16"
+      ]
+    }
+  ],
+  "qa_test_files": [
+    {
+      "path": "tests/test_controller_integration.py",
+      "content": "import time\nimport threading\nimport copy\nimport unittest\n\nimport controller\n\n\ndef deep_copy_board(board):\n    return [row[:] for row in board]\n\n\ndef count_color(board, color):\n    return sum(cell == color for row in board for cell in row)\n\n\nclass FakeRoot:\n    def __init__(self):\n        self.destroy_called = False\n        self._lock = threading.Lock()\n\n    def after(self, delay_ms, callback, *args):\n        # Schedule immediately for tests (no Tk mainloop).\n        # Return an arbitrary token id.\n        callback(*args)\n        return object()\n\n    def after_cancel(self, timer_id):\n        # No-op for tests.\n        return\n\n    def destroy(self):\n        self.destroy_called = True\n\n\nclass FakeView:\n    def __init__(self):\n        self.render_calls = []  # list of dicts: {\"board\":board, \"last_move\":lm, \"winning_line\":wl}\n        self.status_messages = []\n        self.turn_history = []  # list of tuples (is_human_turn, color)\n        self.difficulty_display_history = []\n        self.starter_display_history = []\n        self.invalid_clicks = 0\n        self.board_enabled = True\n\n    # UI public interface methods the controller will call:\n\n    def render_board(self, board, last_move=None, winning_line=None):\n        # Store a deep copy to protect from aliasing.\n        self.render_calls.append({\n            \"board\": deep_copy_board(board),\n            \"last_move\": None if last_move is None else (last_move[0], last_move[1]),\n            \"winning_line\": None if winning_line is None else [(r, c) for (r, c) in winning_line],\n        })\n\n    def set_status(self, text):\n        self.status_messages.append(text)\n\n    def set_turn(self, is_human_turn, color):\n        self.turn_history.append((bool(is_human_turn), int(color)))\n\n    def set_difficulty_display(self, difficulty):\n        self.difficulty_display_history.append(difficulty)\n\n    def set_starter_display(self, starter):\n        self.starter_display_history.append(starter)\n\n    def enable_board(self):\n        self.board_enabled = True\n\n    def disable_board(self):\n        self.board_enabled = False\n\n    def flash_invalid_click(self):\n        self.invalid_clicks += 1\n\n    # Helpers for tests:\n\n    def latest_board(self):\n        if not self.render_calls:\n            return None\n        return self.render_calls[-1][\"board\"]\n\n    def latest_last_move(self):\n        if not self.render_calls:\n            return None\n        return self.render_calls[-1][\"last_move\"]\n\n    def latest_winning_line(self):\n        if not self.render_calls:\n            return None\n        return self.render_calls[-1][\"winning_line\"]\n\n\ndef wait_until(predicate, timeout=2.0, interval=0.005):\n    start = time.perf_counter()\n    while time.perf_counter() - start < timeout:\n        if predicate():\n            return True\n        time.sleep(interval)\n    return False\n\n\nclass ControllerIntegrationTests(unittest.TestCase):\n    def setUp(self):\n        self.root = FakeRoot()\n        self.view = FakeView()\n        self.ctrl = controller.GameController(self.root, self.view, default_difficulty='Medium', default_starter='Human')\n        # Ensure a fresh game for each test\n        self.ctrl.start_new_game()\n\n    def tearDown(self):\n        try:\n            self.ctrl.on_quit()\n        except Exception:\n            # We only ensure no exception bubbles up\n            pass\n\n    def test_TC_AC1_defaults_and_start(self):\n        # AC-1: Verify initial render/controls and status.\n        # Expect 15x15 board and displays show Medium difficulty and Human starter, Human/Black to move.\n        board = self.view.latest_board()\n        self.assertIsNotNone(board, \"Board was not rendered on start\")\n        self.assertEqual(len(board), 15, \"Board rows != 15\")\n        self.assertTrue(all(len(row) == 15 for row in board), \"Board columns != 15\")\n\n        self.assertIn('Medium', self.view.difficulty_display_history, \"Difficulty display did not include 'Medium'\")\n        self.assertIn('Human', self.view.starter_display_history, \"Starter display did not include 'Human'\")\n\n        # Last set_turn should indicate Human to move and color Black (1)\n        self.assertTrue(len(self.view.turn_history) >= 1, \"Turn not displayed\")\n        is_human_turn, color = self.view.turn_history[-1]\n        self.assertTrue(is_human_turn, \"Expected Human to move initially\")\n        self.assertEqual(color, 1, \"Expected Black (1) to move initially\")\n\n    def test_TC_AC2_AC3_human_move_then_ai_medium_timing(self):\n        # AC-2 and AC-3\n        # Human clicks center\n        t0 = time.perf_counter()\n        self.ctrl.on_intersection_click(7, 7)\n\n        # After human move, expect black stone at (7,7)\n        def human_placed():\n            b = self.view.latest_board()\n            return b is not None and b[7][7] == 1\n\n        self.assertTrue(wait_until(human_placed, timeout=1.0), \"Human stone not placed at expected intersection\")\n        b_after_human = self.view.latest_board()\n        self.assertEqual(b_after_human[7][7], 1, \"Expected Black stone at (7,7)\")\n\n        # Turn should switch to AI (White)\n        self.assertTrue(len(self.view.turn_history) >= 1)\n        is_human_turn, _ = self.view.turn_history[-1]\n        self.assertFalse(is_human_turn, \"Turn did not switch to AI after human move\")\n\n        # Wait for AI to move (Medium should be within 1.0s)\n        def ai_moved():\n            b = self.view.latest_board()\n            if b is None:\n                return False\n            lm = self.view.latest_last_move()\n            if lm is None:\n                return False\n            r, c = lm\n            return b[r][c] == 2  # last move placed by AI (White)\n\n        self.assertTrue(wait_until(ai_moved, timeout=1.2), \"AI did not make its move\")\n\n        elapsed = time.perf_counter() - t0\n        self.assertLessEqual(elapsed, 1.0, f\"AI (Medium) response exceeded 1.0s: {elapsed:.3f}s\")\n\n        # After AI move, it should be Human's turn again and color Black (1)\n        is_human_turn, color = self.view.turn_history[-1]\n        self.assertTrue(is_human_turn, \"Turn did not return to Human after AI move\")\n        self.assertEqual(color, 1, \"Expected Human/Black to move after AI\")\n\n    def test_TC_AC4_invalid_click_on_occupied(self):\n        # Place at (7,7), wait AI, then attempt to place again on (7,7)\n        self.ctrl.on_intersection_click(7, 7)\n        # Wait until AI moved and it's Human's turn again\n        def human_turn_again():\n            if not self.view.turn_history:\n                return False\n            turn_is_human, _ = self.view.turn_history[-1]\n            lm = self.view.latest_last_move()\n            b = self.view.latest_board()\n            return turn_is_human and lm is not None and b[lm[0]][lm[1]] != 0\n\n        self.assertTrue(wait_until(human_turn_again, timeout=1.5), \"Did not reach Human turn again\")\n\n        before_board = deep_copy_board(self.view.latest_board())\n        before_turn = self.view.turn_history[-1]\n        before_invalids = self.view.invalid_clicks\n\n        self.ctrl.on_intersection_click(7, 7)  # occupied\n\n        # Board should not change and invalid feedback should occur\n        after_board = self.view.latest_board()\n        self.assertEqual(before_board, after_board, \"Board changed after clicking occupied intersection\")\n        self.assertEqual(before_turn, self.view.turn_history[-1], \"Turn changed after invalid click\")\n        self.assertGreater(self.view.invalid_clicks, before_invalids, \"Invalid click feedback not triggered\")\n\n    def test_TC_AC6_easy_timing(self):\n        self.ctrl.on_difficulty_change('Easy')\n        t0 = time.perf_counter()\n        self.ctrl.on_intersection_click(5, 5)\n\n        def ai_moved():\n            b = self.view.latest_board()\n            if b is None:\n                return False\n            lm = self.view.latest_last_move()\n            if lm is None:\n                return False\n            r, c = lm\n            return b[r][c] == 2  # AI (White) last moved\n\n        self.assertTrue(wait_until(ai_moved, timeout=1.0), \"AI (Easy) did not move\")\n        elapsed = time.perf_counter() - t0\n        self.assertLessEqual(elapsed, 0.5, f\"AI (Easy) response exceeded 0.5s: {elapsed:.3f}s\")\n\n    def test_TC_AC9_ai_starts(self):\n        self.ctrl.on_starter_change('AI')\n        self.ctrl.start_new_game()\n\n        # Initially should indicate AI/Black to move\n        self.assertTrue(len(self.view.turn_history) >= 1)\n        initial_is_human, initial_color = self.view.turn_history[-1]\n        self.assertFalse(initial_is_human, \"Initial turn should indicate AI to move when AI starts\")\n        self.assertEqual(initial_color, 1, \"AI should be Black when starting\")\n\n        # Wait for AI to place one Black stone\n        def ai_black_moved():\n            b = self.view.latest_board()\n            if b is None:\n                return False\n            lm = self.view.latest_last_move()\n            if lm is None:\n                return False\n            r, c = lm\n            return b[r][c] == 1 and count_color(b, 1) == 1\n\n        self.assertTrue(wait_until(ai_black_moved, timeout=1.0), \"AI did not make the first move as Black\")\n\n        # After AI move, Human's turn should be displayed\n        is_human_turn, color = self.view.turn_history[-1]\n        self.assertTrue(is_human_turn, \"After AI starts, turn should pass to Human\")\n        self.assertIn(color, (1, 2), \"Turn color should be valid (1 or 2)\")\n\n    def test_TC_AC10_new_game_preserves_settings(self):\n        self.ctrl.on_difficulty_change('Hard')\n        self.ctrl.on_starter_change('Human')\n        self.ctrl.start_new_game()\n\n        # Make a move then restart\n        self.ctrl.on_intersection_click(3, 3)\n        # Allow possible AI move to settle\n        wait_until(lambda: True, timeout=0.05)\n\n        self.ctrl.start_new_game()\n\n        # Board should be empty\n        board = self.view.latest_board()\n        self.assertIsNotNone(board)\n        self.assertEqual(count_color(board, 1) + count_color(board, 2), 0, \"Board not cleared on New Game\")\n\n        # Settings preserved\n        self.assertTrue(self.view.difficulty_display_history, \"No difficulty display updates\")\n        self.assertEqual(self.view.difficulty_display_history[-1], 'Hard', \"Difficulty not preserved on restart\")\n        self.assertTrue(self.view.starter_display_history, \"No starter display updates\")\n        self.assertEqual(self.view.starter_display_history[-1], 'Human', \"Starter not preserved on restart\")\n\n        # Status should indicate starting player's turn (Human/Black)\n        self.assertTrue(self.view.turn_history, \"No turn status after restart\")\n        is_human_turn, color = self.view.turn_history[-1]\n        self.assertTrue(is_human_turn, \"Expected Human turn after restart with Human starter\")\n        self.assertEqual(color, 1, \"Expected Black to move after restart with Human starter\")\n\n    def test_TC_AC11_change_difficulty_midgame(self):\n        # Default Medium -> change to Easy and verify next AI move timing\n        self.ctrl.on_difficulty_change('Easy')\n        t0 = time.perf_counter()\n        self.ctrl.on_intersection_click(4, 4)\n\n        def ai_moved():\n            b = self.view.latest_board()\n            if b is None:\n                return False\n            lm = self.view.latest_last_move()\n            if lm is None:\n                return False\n            r, c = lm\n            return b[r][c] == 2\n\n        self.assertTrue(wait_until(ai_moved, timeout=1.0), \"AI did not move after difficulty change to Easy\")\n        elapsed = time.perf_counter() - t0\n        self.assertLessEqual(elapsed, 0.5, f\"AI (after change to Easy) response exceeded 0.5s: {elapsed:.3f}s\")\n        self.assertTrue(self.view.difficulty_display_history, \"Difficulty display not updated\")\n        self.assertEqual(self.view.difficulty_display_history[-1], 'Easy', \"Difficulty indicator did not reflect Easy\")\n\n    def test_TC_AC14_last_move_marker_updates(self):\n        # Human move then wait AI move; verify last_move updates accordingly via render calls\n        self.ctrl.on_intersection_click(6, 6)\n        # Wait until human move is reflected\n        self.assertTrue(wait_until(lambda: self.view.latest_board() is not None and self.view.latest_board()[6][6] == 1, timeout=1.0))\n\n        lm_after_human = self.view.latest_last_move()\n        self.assertEqual(lm_after_human, (6, 6), \"last_move not set to human move\")\n\n        # Wait for AI move to occur\n        self.assertTrue(wait_until(lambda: self.view.latest_last_move() is not None and self.view.latest_board()[self.view.latest_last_move()[0]][self.view.latest_last_move()[1]] == 2, timeout=1.2), \"AI did not move\")\n\n        lm_after_ai = self.view.latest_last_move()\n        brd = self.view.latest_board()\n        self.assertIsNotNone(lm_after_ai)\n        self.assertEqual(brd[lm_after_ai[0]][lm_after_ai[1]], 2, \"last_move did not update to the AI's most recent stone\")\n\n    def test_TC_AC15_quit(self):\n        # Should call root.destroy without raising\n        self.ctrl.on_quit()\n        self.assertTrue(self.root.destroy_called, \"Quit did not destroy the application root\")\n\nif __name__ == '__main__':\n    unittest.main()"
+    },
+    {
+      "path": "tests/test_model_and_ai.py",
+      "content": "import time\nimport unittest\n\nimport game\nimport ai\n\n\nclass ModelAndAiTests(unittest.TestCase):\n    def test_TC_AC7_medium_blocks_immediate_win_in_one(self):\n        # Human starts as Black (1), AI is White (2)\n        state = game.GameState(board_size=15, human_starts=True)\n        # Build a row where human (1) has four consecutive stones with exactly one adjacent empty cell,\n        # and the other side is blocked by AI (2). It is AI's turn.\n        # Sequence:\n        # 1:(7,5) 2:(0,0) 1:(7,6) 2:(0,1) 1:(7,7) 2:(7,4) 1:(7,8)\n        moves = [\n            (7, 5), (0, 0),\n            (7, 6), (0, 1),\n            (7, 7), (7, 4),\n            (7, 8)\n        ]\n        for r, c in moves:\n            ok = state.place_stone(r, c)\n            self.assertTrue(ok, f\"Failed to place stone at {(r,c)} during setup\")\n\n        # Now it's AI's (White/2) turn. The only blocking move is at (7,9).\n        r, c = ai.compute_best_move(state, 'Medium', time_limit=1.0)\n        self.assertEqual((r, c), (7, 9), f\"Medium did not block immediate win; chose {(r,c)} instead of (7,9)\")\n\n    def test_TC_AC8_hard_takes_immediate_winning_move(self):\n        # Human starts as Black (1), AI is White (2). Make it AI's turn with AI having four-in-a-row.\n        state = game.GameState(board_size=15, human_starts=True)\n        # Build AI's four at (7,5),(7,6),(7,7),(7,8) with (7,9) empty and it's AI's turn.\n        # Sequence placing alternates colors, ending with AI to move:\n        # 1:(0,0) 2:(7,5) 1:(0,1) 2:(7,6) 1:(0,2) 2:(7,7) 1:(0,3) 2:(7,8) 1:(0,4)\n        moves = [\n            (0, 0), (7, 5),\n            (0, 1), (7, 6),\n            (0, 2), (7, 7),\n            (0, 3), (7, 8),\n            (0, 4)\n        ]\n        for r, c in moves:\n            ok = state.place_stone(r, c)\n            self.assertTrue(ok, f\"Failed to place stone at {(r,c)} during setup\")\n\n        # It's now AI's (White/2) turn. Winning move expected at (7,9).\n        r, c = ai.compute_best_move(state, 'Hard', time_limit=3.0)\n        self.assertEqual((r, c), (7, 9), f\"Hard did not take immediate winning move; chose {(r,c)} instead of (7,9)\")\n\n    def test_TC_AC12_win_detection_check_winner(self):\n        # Make a simple horizontal five for Black at row 10, cols 3..7\n        size = 15\n        board = [[0] * size for _ in range(size)]\n        coords = [(10, c) for c in range(3, 8)]\n        for (r, c) in coords:\n            board[r][c] = 1  # Black\n\n        # The last move is the final stone placed; check_winner should report Black and the winning line\n        winner, line = game.check_winner(board, 10, 7)\n        self.assertEqual(winner, 1, \"Winner should be Black (1)\")\n        self.assertIsNotNone(line, \"Winning line should be returned\")\n        self.assertEqual(set(line), set(coords), \"Winning line does not match the five-in-a-row\")\n\n    def test_TC_AC13_draw_detection_board_full(self):\n        # Fill a checkerboard pattern to avoid any five-in-a-row; board should be full.\n        size = 15\n        board = [[0] * size for _ in range(size)]\n        for r in range(size):\n            for c in range(size):\n                board[r][c] = 1 if (r + c) % 2 == 0 else 2\n\n        self.assertTrue(game.board_full(board), \"board_full should return True on a completely filled board\")\n\n        # Pick the last placed location and verify no win is detected for that last stone\n        # Choose an arbitrary cell; for safety, choose (14,14) which is Black in checkerboard\n        winner, line = game.check_winner(board, 14, 14)\n        self.assertIsNone(winner, \"No winner should be detected on checkerboard pattern\")\n        self.assertIsNone(line, \"Winning line should be None when there is no winner\")\n\n    def test_TC_AC16_ai_compute_timing_across_difficulties(self):\n        # Construct a small mid-game state without immediate wins to time compute_best_move\n        state = game.GameState(board_size=15, human_starts=True)\n        setup_moves = [\n            (7, 7), (7, 8),\n            (6, 6), (8, 8),\n            (6, 7), (8, 7),\n            (7, 6)\n        ]\n        for r, c in setup_moves:\n            ok = state.place_stone(r, c)\n            self.assertTrue(ok, f\"Failed to place stone at {(r,c)} during setup\")\n\n        # Ensure it's AI's turn when timing Medium and Hard (alternate if needed)\n        # If next_color is 1 (Human), place a harmless Human move to pass turn to AI.\n        # We cannot access next_color directly by contract; instead, try a harmless placement and revert if illegal.\n        # Safer approach: time on a copied state where it's AI's turn after placing one more Human stone.\n        base_state = state.copy()\n        extra_move_done = base_state.place_stone(0, 0)  # Human move; OK to call as part of setup\n        self.assertTrue(extra_move_done, \"Failed to adjust turn to AI for timing tests\")\n\n        # Easy timing\n        t0 = time.perf_counter()\n        move_e = ai.compute_best_move(base_state, 'Easy', time_limit=0.5)\n        dt_e = time.perf_counter() - t0\n        self.assertIsInstance(move_e, tuple)\n        self.assertLessEqual(dt_e, 0.5, f\"Easy compute exceeded 0.5s: {dt_e:.3f}s\")\n\n        # Medium timing\n        t0 = time.perf_counter()\n        move_m = ai.compute_best_move(base_state, 'Medium', time_limit=1.0)\n        dt_m = time.perf_counter() - t0\n        self.assertIsInstance(move_m, tuple)\n        self.assertLessEqual(dt_m, 1.0, f\"Medium compute exceeded 1.0s: {dt_m:.3f}s\")\n\n        # Hard timing\n        t0 = time.perf_counter()\n        move_h = ai.compute_best_move(base_state, 'Hard', time_limit=3.0)\n        dt_h = time.perf_counter() - t0\n        self.assertIsInstance(move_h, tuple)\n        self.assertLessEqual(dt_h, 3.0, f\"Hard compute exceeded 3.0s: {dt_h:.3f}s\")\n\n    # Note: AC-5 (click snapping/ignoring outside grid) involves pixel-level UI interactions.\n    # There is no public interface in ui.GomokuView to inject raw click coordinates without running a Tk event loop.\n    # Thus, this behavior cannot be exercised directly in these black-box tests without starting the GUI.\n\n\nif __name__ == '__main__':\n    unittest.main()"
+    }
+  ],
+  "executed": true,
+  "passed": false,
+  "stdout": "..F..F..F.F..F                                                           [100%]\n=================================== FAILURES ===================================\n_______ ControllerIntegrationTests.test_TC_AC14_last_move_marker_updates _______\n\nself = <test_controller_integration.ControllerIntegrationTests testMethod=test_TC_AC14_last_move_marker_updates>\n\n    def test_TC_AC14_last_move_marker_updates(self):\n        # Human move then wait AI move; verify last_move updates accordingly via render calls\n        self.ctrl.on_intersection_click(6, 6)\n        # Wait until human move is reflected\n        self.assertTrue(wait_until(lambda: self.view.latest_board() is not None and self.view.latest_board()[6][6] == 1, timeout=1.0))\n    \n        lm_after_human = self.view.latest_last_move()\n>       self.assertEqual(lm_after_human, (6, 6), \"last_move not set to human move\")\nE       AssertionError: Tuples differ: (7, 7) != (6, 6)\nE       \nE       First differing element 0:\nE       7\nE       6\nE       \nE       - (7, 7)\nE       + (6, 6) : last_move not set to human move\n\n/var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_controller_integration.py:308: AssertionError\n_ ControllerIntegrationTests.test_TC_AC2_AC3_human_move_then_ai_medium_timing __\n\nself = <test_controller_integration.ControllerIntegrationTests testMethod=test_TC_AC2_AC3_human_move_then_ai_medium_timing>\n\n    def test_TC_AC2_AC3_human_move_then_ai_medium_timing(self):\n        # AC-2 and AC-3\n        # Human clicks center\n        t0 = time.perf_counter()\n        self.ctrl.on_intersection_click(7, 7)\n    \n        # After human move, expect black stone at (7,7)\n        def human_placed():\n            b = self.view.latest_board()\n            return b is not None and b[7][7] == 1\n    \n        self.assertTrue(wait_until(human_placed, timeout=1.0), \"Human stone not placed at expected intersection\")\n        b_after_human = self.view.latest_board()\n        self.assertEqual(b_after_human[7][7], 1, \"Expected Black stone at (7,7)\")\n    \n        # Turn should switch to AI (White)\n        self.assertTrue(len(self.view.turn_history) >= 1)\n        is_human_turn, _ = self.view.turn_history[-1]\n>       self.assertFalse(is_human_turn, \"Turn did not switch to AI after human move\")\nE       AssertionError: True is not false : Turn did not switch to AI after human move\n\n/var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_controller_integration.py:154: AssertionError\n_______________ ControllerIntegrationTests.test_TC_AC9_ai_starts _______________\n\nself = <test_controller_integration.ControllerIntegrationTests testMethod=test_TC_AC9_ai_starts>\n\n    def test_TC_AC9_ai_starts(self):\n        self.ctrl.on_starter_change('AI')\n        self.ctrl.start_new_game()\n    \n        # Initially should indicate AI/Black to move\n        self.assertTrue(len(self.view.turn_history) >= 1)\n        initial_is_human, initial_color = self.view.turn_history[-1]\n>       self.assertFalse(initial_is_human, \"Initial turn should indicate AI to move when AI starts\")\nE       AssertionError: True is not false : Initial turn should indicate AI to move when AI starts\n\n/var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_controller_integration.py:229: AssertionError\n____________ ModelAndAiTests.test_TC_AC13_draw_detection_board_full ____________\n\nself = <test_model_and_ai.ModelAndAiTests testMethod=test_TC_AC13_draw_detection_board_full>\n\n    def test_TC_AC13_draw_detection_board_full(self):\n        # Fill a checkerboard pattern to avoid any five-in-a-row; board should be full.\n        size = 15\n        board = [[0] * size for _ in range(size)]\n        for r in range(size):\n            for c in range(size):\n                board[r][c] = 1 if (r + c) % 2 == 0 else 2\n    \n        self.assertTrue(game.board_full(board), \"board_full should return True on a completely filled board\")\n    \n        # Pick the last placed location and verify no win is detected for that last stone\n        # Choose an arbitrary cell; for safety, choose (14,14) which is Black in checkerboard\n        winner, line = game.check_winner(board, 14, 14)\n>       self.assertIsNone(winner, \"No winner should be detected on checkerboard pattern\")\nE       AssertionError: 1 is not None : No winner should be detected on checkerboard pattern\n\n/var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_model_and_ai.py:78: AssertionError\n________ ModelAndAiTests.test_TC_AC8_hard_takes_immediate_winning_move _________\n\nself = <test_model_and_ai.ModelAndAiTests testMethod=test_TC_AC8_hard_takes_immediate_winning_move>\n\n    def test_TC_AC8_hard_takes_immediate_winning_move(self):\n        # Human starts as Black (1), AI is White (2). Make it AI's turn with AI having four-in-a-row.\n        state = game.GameState(board_size=15, human_starts=True)\n        # Build AI's four at (7,5),(7,6),(7,7),(7,8) with (7,9) empty and it's AI's turn.\n        # Sequence placing alternates colors, ending with AI to move:\n        # 1:(0,0) 2:(7,5) 1:(0,1) 2:(7,6) 1:(0,2) 2:(7,7) 1:(0,3) 2:(7,8) 1:(0,4)\n        moves = [\n            (0, 0), (7, 5),\n            (0, 1), (7, 6),\n            (0, 2), (7, 7),\n            (0, 3), (7, 8),\n            (0, 4)\n        ]\n        for r, c in moves:\n            ok = state.place_stone(r, c)\n            self.assertTrue(ok, f\"Failed to place stone at {(r,c)} during setup\")\n    \n        # It's now AI's (White/2) turn. Winning move expected at (7,9).\n        r, c = ai.compute_best_move(state, 'Hard', time_limit=3.0)\n>       self.assertEqual((r, c), (7, 9), f\"Hard did not take immediate winning move; chose {(r,c)} instead of (7,9)\")\nE       AssertionError: Tuples differ: (7, 4) != (7, 9)\nE       \nE       First differing element 1:\nE       4\nE       9\nE       \nE       - (7, 4)\nE       ?     ^\nE       \nE       + (7, 9)\nE       ?     ^\nE        : Hard did not take immediate winning move; chose (7, 4) instead of (7,9)\n\n/var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_model_and_ai.py:49: AssertionError\n=========================== short test summary info ============================\nFAILED ../../../../../../../var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_controller_integration.py::ControllerIntegrationTests::test_TC_AC14_last_move_marker_updates\nFAILED ../../../../../../../var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_controller_integration.py::ControllerIntegrationTests::test_TC_AC2_AC3_human_move_then_ai_medium_timing\nFAILED ../../../../../../../var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_controller_integration.py::ControllerIntegrationTests::test_TC_AC9_ai_starts\nFAILED ../../../../../../../var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_model_and_ai.py::ModelAndAiTests::test_TC_AC13_draw_detection_board_full\nFAILED ../../../../../../../var/folders/ph/9nssfy6n2w927cnssbm654n40000gn/T/qa_run_l2zhmd_a/tests/test_model_and_ai.py::ModelAndAiTests::test_TC_AC8_hard_takes_immediate_winning_move\n5 failed, 9 passed in 0.06s\n",
+  "stderr": "",
+  "return_code": 1,
+  "total_tests": 14,
+  "passed_tests": 9,
+  "failed_tests": 5,
+  "pass_rate": 0.6428571428571429,
+  "test_case_results": [
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC10_new_game_preserves_settings",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC11_change_difficulty_midgame",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC14_last_move_marker_updates",
+      "outcome": "failed",
+      "message": "AssertionError: Tuples differ: (7, 7) != (6, 6)\n\nFirst differing element 0:\n7\n6\n\n- (7, 7)\n+ (6, 6) : last_move not set to human move"
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC15_quit",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC1_defaults_and_start",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC2_AC3_human_move_then_ai_medium_timing",
+      "outcome": "failed",
+      "message": "AssertionError: True is not false : Turn did not switch to AI after human move"
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC4_invalid_click_on_occupied",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC6_easy_timing",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC9_ai_starts",
+      "outcome": "failed",
+      "message": "AssertionError: True is not false : Initial turn should indicate AI to move when AI starts"
+    },
+    {
+      "name": "tests.test_model_and_ai.ModelAndAiTests::test_TC_AC12_win_detection_check_winner",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_model_and_ai.ModelAndAiTests::test_TC_AC13_draw_detection_board_full",
+      "outcome": "failed",
+      "message": "AssertionError: 1 is not None : No winner should be detected on checkerboard pattern"
+    },
+    {
+      "name": "tests.test_model_and_ai.ModelAndAiTests::test_TC_AC16_ai_compute_timing_across_difficulties",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_model_and_ai.ModelAndAiTests::test_TC_AC7_medium_blocks_immediate_win_in_one",
+      "outcome": "passed",
+      "message": ""
+    },
+    {
+      "name": "tests.test_model_and_ai.ModelAndAiTests::test_TC_AC8_hard_takes_immediate_winning_move",
+      "outcome": "failed",
+      "message": "AssertionError: Tuples differ: (7, 4) != (7, 9)\n\nFirst differing element 1:\n4\n9\n\n- (7, 4)\n?     ^\n\n+ (7, 9)\n?     ^\n : Hard did not take immediate winning move; chose (7, 4) instead of (7,9)"
+    }
+  ],
+  "qa_summary": "The test suite focuses on black-box validation of the model (rules/state), AI decision logic and timing, and controller-view interactions without launching a real GUI loop. We verify default initialization, turn enforcement, legal/illegal moves, AI response (timing and move legality), starter and difficulty handling (including mid-game changes), new game behavior, last-move marker propagation, quit handling, win/draw detection, and AI heuristics (Medium blocks, Hard wins). Pure UI snapping and visual rendering specifics are not executed due to lack of public interfaces for pixel-click handling; these are noted.",
+  "summary": "9/14 tests passed (64%). Failing: tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC14_last_move_marker_updates, tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC2_AC3_human_move_then_ai_medium_timing, tests.test_controller_integration.ControllerIntegrationTests::test_TC_AC9_ai_starts, tests.test_model_and_ai.ModelAndAiTests::test_TC_AC13_draw_detection_board_full, tests.test_model_and_ai.ModelAndAiTests::test_TC_AC8_hard_takes_immediate_winning_move."
+}

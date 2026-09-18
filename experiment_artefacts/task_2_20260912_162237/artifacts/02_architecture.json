@@ -1,0 +1,163 @@
+{
+  "overview": "A desktop Kanban manager built with Tkinter. Core domain models (Task, Project, AppState) are kept in memory and persisted atomically to a local JSON file. Services encapsulate business rules (validation, dependencies, status gating, filtering, statistics) and trigger autosave. The UI module builds a three-column Kanban board per active project, supports creating/editing/moving/deleting tasks, filtering, viewing dependencies, and project management. Entry point wires repository, services, and UI, and starts the Tk event loop.",
+  "language": "python",
+  "modules": [
+    {
+      "name": "models.py",
+      "responsibility": "Domain model classes and constants representing tasks, projects, and application state; JSON (de)serialization helpers.",
+      "key_functions_or_classes": [
+        "Task",
+        "Project",
+        "AppState"
+      ],
+      "public_interfaces": [
+        "class Task:  Task(id: str, title: str, priority: str, description: Optional[str] = None, tags: Optional[list[str]] = None, due_date: Optional[datetime.date] = None, status: str = 'To Do', dependencies: Optional[list[str]] = None) -> None",
+        "class Task:  Task.to_dict() -> dict",
+        "class Task:  Task.from_dict(data: dict) -> 'Task'",
+        "class Project:  Project(id: str, name: str, tasks: Optional[dict[str, Task]] = None) -> None",
+        "class Project:  Project.add_task(task: Task) -> None",
+        "class Project:  Project.remove_task(task_id: str) -> None",
+        "class Project:  Project.find_dependents(task_id: str) -> list[Task]",
+        "class Project:  Project.to_dict() -> dict",
+        "class Project:  Project.from_dict(data: dict) -> 'Project'",
+        "class AppState:  AppState(projects: Optional[dict[str, Project]] = None, active_project_id: Optional[str] = None) -> None",
+        "class AppState:  AppState.get_active_project() -> Optional[Project]",
+        "class AppState:  AppState.set_active_project(project_id: Optional[str]) -> None"
+      ]
+    },
+    {
+      "name": "exceptions.py",
+      "responsibility": "Domain-specific exceptions for validation, dependency cycles, blocked completion, and blocked deletions.",
+      "key_functions_or_classes": [
+        "DependencyCycleError",
+        "BlockedCompletionError",
+        "DeletionBlockedError"
+      ],
+      "public_interfaces": [
+        "class DependencyCycleError:  DependencyCycleError(message: str) -> None",
+        "class BlockedCompletionError:  BlockedCompletionError(message: str, blocking_dependencies: Optional[list[str]] = None) -> None",
+        "class DeletionBlockedError:  DeletionBlockedError(message: str, dependents: Optional[list[str]] = None) -> None"
+      ]
+    },
+    {
+      "name": "validation.py",
+      "responsibility": "Input validation and normalization utilities for titles, priorities, tags, and due dates.",
+      "key_functions_or_classes": [
+        "validate_title",
+        "validate_priority",
+        "parse_due_date",
+        "normalize_tags"
+      ],
+      "public_interfaces": [
+        "def validate_title(title: str) -> None",
+        "def validate_priority(value: str) -> None",
+        "def parse_due_date(due_date_str: str) -> datetime.date",
+        "def normalize_tags(tags: Optional[list[str]]) -> list[str]"
+      ]
+    },
+    {
+      "name": "persistence.py",
+      "responsibility": "Atomic JSON persistence to a local application directory; loading/saving AppState; optional debounced autosave.",
+      "key_functions_or_classes": [
+        "JsonRepository"
+      ],
+      "public_interfaces": [
+        "class JsonRepository:  JsonRepository(root_dir: Optional[pathlib.Path | str] = None, autosave: bool = True) -> None",
+        "class JsonRepository:  JsonRepository.load() -> models.AppState",
+        "class JsonRepository:  JsonRepository.save(state: models.AppState) -> None",
+        "class JsonRepository:  JsonRepository.save_debounced(state: models.AppState, delay_sec: float = 0.5) -> None"
+      ]
+    },
+    {
+      "name": "services.py",
+      "responsibility": "Business logic services for managing projects and tasks, including dependency rules, status gating, deletion blocking, and autosave integration.",
+      "key_functions_or_classes": [
+        "ProjectService",
+        "TaskService"
+      ],
+      "public_interfaces": [
+        "class ProjectService:  ProjectService(state: models.AppState, repo: persistence.JsonRepository) -> None",
+        "class ProjectService:  ProjectService.create_project(name: str) -> models.Project",
+        "class ProjectService:  ProjectService.list_projects() -> list[models.Project]",
+        "class ProjectService:  ProjectService.set_active_project(project_id: str) -> models.Project",
+        "class ProjectService:  ProjectService.rename_project(project_id: str, new_name: str) -> models.Project",
+        "class ProjectService:  ProjectService.delete_project(project_id: str) -> None",
+        "class TaskService:  TaskService(state: models.AppState, repo: persistence.JsonRepository) -> None",
+        "class TaskService:  TaskService.list_tasks(project_id: str) -> list[models.Task]",
+        "class TaskService:  TaskService.get_task(project_id: str, task_id: str) -> models.Task",
+        "class TaskService:  TaskService.create_task(project_id: str, title: str, priority: str, description: Optional[str] = None, tags: Optional[list[str]] = None, due_date: Optional[str] = None, status: Optional[str] = None, dependencies: Optional[list[str]] = None) -> models.Task",
+        "class TaskService:  TaskService.edit_task(project_id: str, task_id: str, *, title: Optional[str] = None, description: Optional[str] = None, priority: Optional[str] = None, tags: Optional[list[str]] = None, due_date: Optional[str] = None, due_date_set: bool = False, status: Optional[str] = None) -> models.Task",
+        "class TaskService:  TaskService.set_task_status(project_id: str, task_id: str, new_status: str) -> models.Task",
+        "class TaskService:  TaskService.move_task_between_columns(project_id: str, task_id: str, destination_status: str) -> models.Task",
+        "class TaskService:  TaskService.delete_task(project_id: str, task_id: str) -> None",
+        "class TaskService:  TaskService.set_dependencies(project_id: str, task_id: str, predecessor_ids: list[str]) -> models.Task",
+        "class TaskService:  TaskService.add_tag(project_id: str, task_id: str, tag: str) -> models.Task",
+        "class TaskService:  TaskService.remove_tag(project_id: str, task_id: str, tag: str) -> models.Task"
+      ]
+    },
+    {
+      "name": "filters.py",
+      "responsibility": "Filtering functions to produce a subset of tasks by status, priority, tags (any-of), and due date inclusive range.",
+      "key_functions_or_classes": [
+        "filter_tasks"
+      ],
+      "public_interfaces": [
+        "def filter_tasks(tasks: list[models.Task], status: Optional[set[str]] = None, priorities: Optional[set[str]] = None, tags_any_of: Optional[set[str]] = None, due_date_start: Optional[str] = None, due_date_end: Optional[str] = None) -> list[models.Task]"
+      ]
+    },
+    {
+      "name": "stats.py",
+      "responsibility": "Computation of per-project statistics: counts by status, overdue count, and completion percentage.",
+      "key_functions_or_classes": [
+        "compute_statistics"
+      ],
+      "public_interfaces": [
+        "def compute_statistics(project: models.Project, today: Optional[datetime.date] = None) -> dict[str, int | float]"
+      ]
+    },
+    {
+      "name": "kanban_ui.py",
+      "responsibility": "Tkinter UI composition for the Kanban board, project list/switching, task details panel, filters UI, and interactions; non-blocking builder (no mainloop).",
+      "key_functions_or_classes": [
+        "KanbanUI"
+      ],
+      "public_interfaces": [
+        "class KanbanUI:  KanbanUI(root: tkinter.Tk, project_service: services.ProjectService, task_service: services.TaskService) -> None",
+        "class KanbanUI:  KanbanUI.build() -> tkinter.Frame",
+        "class KanbanUI:  KanbanUI.refresh() -> None",
+        "class KanbanUI:  KanbanUI.apply_filters(status: Optional[set[str]] = None, priorities: Optional[set[str]] = None, tags_any_of: Optional[set[str]] = None, due_date_start: Optional[str] = None, due_date_end: Optional[str] = None) -> None",
+        "class KanbanUI:  KanbanUI.clear_filters() -> None"
+      ]
+    },
+    {
+      "name": "main.py",
+      "responsibility": "Runnable entry point: initializes repository, loads state, constructs services and UI, builds the window, and starts the Tkinter event loop.",
+      "key_functions_or_classes": [
+        "main"
+      ],
+      "public_interfaces": [
+        "def main() -> None"
+      ]
+    }
+  ],
+  "data_structures": [
+    "Task: {id: str, title: str, description: Optional[str], priority: Literal['Low','Medium','High'], tags: list[str], due_date: Optional[datetime.date], status: Literal['To Do','In Progress','Done'], dependencies: list[str]}",
+    "Project: {id: str, name: str, tasks: dict[str, Task]}",
+    "AppState: {projects: dict[str, Project], active_project_id: Optional[str]}",
+    "Filters: {status: Optional[set[str]], priorities: Optional[set[str]], tags_any_of: Optional[set[str]], due_date_start: Optional[datetime.date], due_date_end: Optional[datetime.date]}",
+    "Statistics: {todo_count: int, in_progress_count: int, done_count: int, overdue_count: int, completion_percent: int}"
+  ],
+  "design_notes": [
+    "UI: Tkinter chosen for cross-platform standard library compliance; three fixed columns (To Do, In Progress, Done) implemented as frames with listboxes or canvases; moves supported via status dropdown/buttons to satisfy acceptance (drag-and-drop optional). Keyboard navigation via standard focus traversal (Tab/Shift+Tab) and arrow keys in lists.",
+    "Persistence: Single JSON file (state.json) under user home (e.g., ~/.kanban_manager) with atomic writes via tempfile + os.replace; autosave invoked on each state change, with optional 0.5s debounce to batch rapid edits.",
+    "Validation: Title non-empty; priority in {'Low','Medium','High'}; due date parsed as ISO 8601 YYYY-MM-DD (datetime.date). Invalid inputs raise ValueError or domain ValidationError to be surfaced as user messages.",
+    "Dependencies: Enforced within a project only. Circular dependencies prevented using DFS on the task graph in TaskService.set_dependencies; attempts raise DependencyCycleError.",
+    "Gating: Transition to 'Done' is blocked if any predecessor tasks are not 'Done'; raises BlockedCompletionError listing blocking task titles/ids. Moving between columns is implemented via status changes.",
+    "Deletion rules: Deleting a task that other tasks depend on is blocked; TaskService.delete_task raises DeletionBlockedError including dependents list to inform the user.",
+    "Filtering: Status and priority are multi-select ANDed; tags use OR semantics (any-of); due date range is inclusive; tasks without a due date are excluded when a date filter is active (per AC-18). Case-insensitive tag matching by normalizing to lower-case.",
+    "Statistics: Overdue = due_date < today AND status != 'Done'; Completion = round((Done / total) * 100). 'today' derived from local system date at midnight; accepts override for testing.",
+    "Performance: In-memory dicts for tasks per project provide O(1) access and quick dependency checks; filtering and stats are O(n) over tasks and fast for up to ~2,000 tasks. UI updates minimize full rebuilds by refreshing only affected columns.",
+    "Startup: Repository load is a single JSON parse; last active project id stored in AppState.active_project_id for quick resume.",
+    "Error handling: All service operations raise clear domain exceptions for the UI to catch and display user-friendly messages; no network or telemetry is performed."
+  ]
+}

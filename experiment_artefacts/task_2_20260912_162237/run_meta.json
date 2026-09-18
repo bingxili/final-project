@@ -1,0 +1,15 @@
+{
+  "task_id": "task_2",
+  "task_prompt": "Build a local project management application in Python with a graphical user interface.\nUsers should be able to create multiple projects, each containing a configurable Kanban board\nwith columns of To Do, In Progress and Done.\nTasks should have a title, description, priority, tags, due date and status,\nand users should be able to create, edit, delete and move tasks between columns.\n\nThe application should support searching and filtering tasks by status, priority, tags and due date.\nIt should also provide project-level statistics such as task counts by status, overdue tasks and completion percentage.\n\nUsers should be able to define task dependencies,\nand the application should prevent a task from being marked as complete when its dependencies are incomplete.",
+  "default_model": "openai/gpt-5",
+  "started_at": "2026-09-12T16:22:37.610596+00:00",
+  "finished_at": "2026-09-12T16:32:07.680145+00:00",
+  "status": "passed",
+  "revision_count": 0,
+  "max_revisions": 3,
+  "total_llm_calls": 5,
+  "total_prompt_tokens": 31809,
+  "total_completion_tokens": 49337,
+  "total_tokens": 81146,
+  "error": null
+}

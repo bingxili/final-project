@@ -1,0 +1,52 @@
+{
+  "revision_reviewed": 0,
+  "verdict": "approve",
+  "comments": [
+    {
+      "severity": "minor",
+      "file": "kanban_ui.py",
+      "comment": "Method _get_selected_task_id_and_status() derives the task by matching the first 6 chars of the UUID (tid.startswith(id_prefix)). Although unlikely, UUID prefix collisions are possible. Consider storing the full task id alongside the listbox entry (e.g., a parallel mapping from listbox index to id, or embed the full id in a hidden attribute) to avoid ambiguity."
+    },
+    {
+      "severity": "minor",
+      "file": "services.py",
+      "comment": "In create_task(), if a non-None status is provided but not in models.STATUSES, it silently defaults to 'To Do' (st = status if status in models.STATUSES else 'To Do'). For clearer validation and user feedback, consider raising a ValueError when an explicit invalid status is provided, mirroring set_task_status() behavior."
+    },
+    {
+      "severity": "minor",
+      "file": "stats.py",
+      "comment": "compute_statistics() uses Python round(), which applies bankers’ rounding. If you need conventional half-up rounding for \"nearest whole percent\" semantics, consider using: completion = int((done * 100 / total) + 0.5) for totals > 0."
+    },
+    {
+      "severity": "minor",
+      "file": "main.py",
+      "comment": "Unused import: 'models' is imported but not used."
+    },
+    {
+      "severity": "minor",
+      "file": "persistence.py",
+      "comment": "save_debounced(): If the app exits immediately after scheduling a save, the pending timer may not have fired yet. Consider adding an explicit flush (e.g., a save on shutdown or joining/canceling the timer) to further reduce the risk of losing very recent edits on abrupt exits."
+    },
+    {
+      "severity": "minor",
+      "file": "kanban_ui.py",
+      "comment": "refresh(): list_projects() order comes from dict insertion order, which may not be intuitive to users. Consider sorting projects by name for a stable, predictable display."
+    },
+    {
+      "severity": "minor",
+      "file": "services.py",
+      "comment": "_assert_no_cycle_on_set(): The DFS uses recursion and could hit recursion depth on very deep dependency chains. Consider an iterative DFS/BFS to avoid potential RecursionError in pathological cases."
+    },
+    {
+      "severity": "minor",
+      "file": "kanban_ui.py",
+      "comment": "Task details are accessible via double-click only. For better keyboard accessibility, add a dedicated \"Details\" button or a keybinding (e.g., Enter) to open the details of the focused list item."
+    },
+    {
+      "severity": "minor",
+      "file": "validation.py",
+      "comment": "Minor nit: the module-level type imports and constants are good; consider documenting allowed priorities in ALLOWED_PRIORITIES docstring or reusing models.PRIORITIES to keep a single source of truth."
+    }
+  ],
+  "summary": "Overall solid implementation that matches the specified architecture and fulfills the functional and acceptance criteria. Domain models, services (including validation, dependency management, gating, and deletion blocking), filtering, statistics, Tkinter UI, and atomic JSON persistence are in place and behave as required. The runnable entry point correctly wires repository, services, and UI. I only note a few minor improvements for robustness and usability; no blocking or major issues found."
+}

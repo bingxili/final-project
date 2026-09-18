@@ -1,0 +1,224 @@
+{
+  "project_summary": "Develop a desktop Gomoku game (five-in-a-row) with a graphical user interface in Python. The game renders a 15x15 board, lets a human play against an AI opponent, and offers three difficulty levels. Users can choose who starts, place stones by clicking intersections, and see clear status and endgame feedback. The AI must only make legal moves and respond within defined time limits. The app supports starting new games, changing difficulty mid-game, and quitting.",
+  "functional_requirements": [
+    {
+      "id": "FR-1",
+      "description": "On launch, display the main window showing a 15x15 Gomoku board and basic controls: New Game, Difficulty (Easy, Medium, Hard), Starter (Human/AI), and Quit. Default settings are Medium difficulty and Human starts."
+    },
+    {
+      "id": "FR-2",
+      "description": "Allow the user to place a stone by clicking an empty board intersection. Ignore clicks on occupied intersections or outside valid intersections and provide non-intrusive feedback (e.g., status message or brief visual cue)."
+    },
+    {
+      "id": "FR-3",
+      "description": "Enforce turn order between the human and AI and clearly indicate whose turn it is."
+    },
+    {
+      "id": "FR-4",
+      "description": "When it is the AI's turn, the AI must place exactly one legal stone on an empty intersection and then yield the turn to the human."
+    },
+    {
+      "id": "FR-5",
+      "description": "Provide three AI difficulty levels selectable by the user: Easy, Medium, Hard. Medium and Hard must at minimum block an immediate opponent win-in-one when a single blocking move exists. Hard must at minimum take an immediate winning move when available."
+    },
+    {
+      "id": "FR-6",
+      "description": "Allow the user to choose who starts the game (Human or AI). The starting player is Black and moves first."
+    },
+    {
+      "id": "FR-7",
+      "description": "Detect a win when a player achieves five or more consecutive stones horizontally, vertically, or diagonally. Detect a draw when the board is full without any player winning."
+    },
+    {
+      "id": "FR-8",
+      "description": "On win or draw, end the game: prevent further stone placement, display a clear result message identifying the winner or draw, and provide an option to start a new game."
+    },
+    {
+      "id": "FR-9",
+      "description": "Provide visual indicators: show the last move made, highlight the winning line when the game ends, and display the current difficulty and turn status."
+    },
+    {
+      "id": "FR-10",
+      "description": "Allow changing AI difficulty during an ongoing game; the change applies to subsequent AI moves."
+    },
+    {
+      "id": "FR-11",
+      "description": "Provide a New Game/Restart control that clears the board and restarts with the currently selected settings (difficulty and starter), unless the user changes them before restarting."
+    },
+    {
+      "id": "FR-12",
+      "description": "Provide a Quit control to cleanly exit the application."
+    }
+  ],
+  "non_functional_requirements": [
+    "Performance: After a human move, AI response must occur within 0.5 seconds on Easy, 1.0 seconds on Medium, and 3.0 seconds on Hard on typical consumer hardware.",
+    "Responsiveness: The UI remains responsive during AI thinking; window can be moved/resized and controls remain clickable without freezing.",
+    "Usability: Intersections and stones are clearly visible; last-move marker is easily distinguishable; clicks not precisely on the pixel-perfect intersection are snapped to the nearest valid intersection within a reasonable radius.",
+    "Visual accessibility: Use high-contrast colors or clear shapes; do not convey critical information by color alone—use markers or text for turn and last move.",
+    "Portability: Runs on Python 3.10+ on Windows, macOS, and Linux with a standard desktop GUI environment.",
+    "Stability: No crashes or unhandled errors on rapid inputs, repeated restarts, or window resizes.",
+    "Startup time: Application launches to an interactive board within 2 seconds on typical consumer hardware.",
+    "Resource usage: Idle memory footprint under 200 MB and no continuous high CPU usage outside AI move calculation.",
+    "Localization: UI text in English; consistent terminology for game states and controls."
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "description": "Launch the application. Expected: A main window appears showing a 15x15 grid board, controls for New Game, Difficulty (default: Medium), Starter (default: Human), and Quit. Status indicates it is Human/Black to move.",
+      "related_requirement_ids": [
+        "FR-1",
+        "FR-3",
+        "FR-6",
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "description": "Start a new game with defaults. Click exactly on an empty intersection (e.g., center). Expected: A black stone appears at that intersection; turn indicator switches to AI; no additional stones are placed.",
+      "related_requirement_ids": [
+        "FR-2",
+        "FR-3",
+        "FR-6",
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "description": "Immediately after AC-2, measure time until AI places a stone. Expected: On Medium difficulty, AI places exactly one legal white stone within 1.0 seconds; turn indicator returns to Human.",
+      "related_requirement_ids": [
+        "FR-3",
+        "FR-4",
+        "FR-5"
+      ]
+    },
+    {
+      "id": "AC-4",
+      "description": "Attempt to click on an already occupied intersection. Expected: No new stone is placed; turn does not change; brief non-intrusive feedback (e.g., status message) indicates the move is invalid.",
+      "related_requirement_ids": [
+        "FR-2",
+        "FR-3",
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-5",
+      "description": "Attempt to click between intersections or clearly outside the grid. Expected: No stone is placed; no turn change; brief non-intrusive feedback is shown or the click is ignored.",
+      "related_requirement_ids": [
+        "FR-2"
+      ]
+    },
+    {
+      "id": "AC-6",
+      "description": "Set difficulty to Easy. Make a human move. Expected: AI responds within 0.5 seconds with a single legal move; no guarantee of blocking human threats is required.",
+      "related_requirement_ids": [
+        "FR-4",
+        "FR-5"
+      ]
+    },
+    {
+      "id": "AC-7",
+      "description": "Set difficulty to Medium. Through play, create a position where the human has four consecutive stones with exactly one adjacent empty cell that would complete five, and it is the AI's turn. Expected: The AI places its stone on that empty cell to block the immediate win.",
+      "related_requirement_ids": [
+        "FR-5",
+        "FR-4",
+        "FR-3"
+      ]
+    },
+    {
+      "id": "AC-8",
+      "description": "Set difficulty to Hard. Through play, create a position where the AI has four consecutive stones with at least one adjacent empty cell that would complete five, and it is the AI's turn. Expected: The AI places its stone on such a cell to win immediately.",
+      "related_requirement_ids": [
+        "FR-5",
+        "FR-4"
+      ]
+    },
+    {
+      "id": "AC-9",
+      "description": "Before starting a game, set Starter to AI and start a new game. Expected: The AI (Black) makes the first move within the selected difficulty's time limit; status initially indicates AI/Black to move.",
+      "related_requirement_ids": [
+        "FR-1",
+        "FR-3",
+        "FR-6",
+        "FR-5"
+      ]
+    },
+    {
+      "id": "AC-10",
+      "description": "During an ongoing game, select New Game without changing settings. Expected: The board clears to empty; move history is reset; current difficulty and starter remain as previously selected; status indicates the starting player's turn.",
+      "related_requirement_ids": [
+        "FR-11",
+        "FR-1",
+        "FR-3",
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-11",
+      "description": "During an ongoing game, change difficulty from Medium to Easy and then make a human move. Expected: The next AI move follows the Easy timing limit (<= 0.5 seconds) and is a single legal placement; difficulty indicator reflects Easy from that point onward.",
+      "related_requirement_ids": [
+        "FR-10",
+        "FR-5",
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-12",
+      "description": "Play until a player achieves five or more consecutive stones and completes the line on their turn. Expected: The game announces the correct winner (Black or White), highlights all stones in the winning line, disables further stone placement, and offers to start a new game.",
+      "related_requirement_ids": [
+        "FR-7",
+        "FR-8",
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-13",
+      "description": "Play to fill the entire board without any five-in-a-row for either player. Expected: The game announces a draw, disables further placement, and offers to start a new game.",
+      "related_requirement_ids": [
+        "FR-7",
+        "FR-8"
+      ]
+    },
+    {
+      "id": "AC-14",
+      "description": "After any move (human or AI), a last-move visual marker is visible on the most recently placed stone. After the next move, the marker moves to the new last stone.",
+      "related_requirement_ids": [
+        "FR-9"
+      ]
+    },
+    {
+      "id": "AC-15",
+      "description": "Click Quit. Expected: The application window closes cleanly and the process exits without error dialogs.",
+      "related_requirement_ids": [
+        "FR-12"
+      ]
+    },
+    {
+      "id": "AC-16",
+      "description": "Measure AI response time across difficulties. Expected: On Easy the response occurs within 0.5 seconds, on Medium within 1.0 second, and on Hard within 3.0 seconds for typical mid-game positions; the UI remains responsive throughout.",
+      "related_requirement_ids": [
+        "FR-4",
+        "FR-5"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Board size is fixed at 15x15 intersections.",
+    "Rules follow standard Gomoku: five or more consecutive stones win; no forbidden moves (e.g., no Renju-specific restrictions).",
+    "Black moves first; the chosen starter plays Black.",
+    "Single local player vs AI only; no network communication is involved.",
+    "Default settings at launch are Medium difficulty and Human starts.",
+    "Clicks are snapped to the nearest intersection within a reasonable radius; otherwise ignored.",
+    "UI text is in English only.",
+    "AI is not required to be deterministic; only observable behaviors and time limits are enforced."
+  ],
+  "out_of_scope": [
+    "Online or LAN multiplayer.",
+    "Saving/loading games or move history export.",
+    "Undo/redo functionality.",
+    "Advanced rule sets (Renju rules, overline/three-three/four-four forbiddance).",
+    "Hints, coaching, or analysis features.",
+    "Timers, clocks, or time controls.",
+    "Audio effects or background music.",
+    "Mobile/touch-specific UX and packaging."
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "revision_reviewed": 2,
+  "verdict": "approve",
+  "comments": [
+    {
+      "severity": "minor",
+      "file": "controller.py",
+      "comment": "In GameController._schedule_ai_move.worker, root.after(0, apply) is invoked from a background thread. While this is a common pattern to marshal back to the Tk thread, Tkinter is not strictly thread-safe; if the user quits and root is destroyed at the same time, this call can raise _tkinter.TclError in the worker thread. Consider guarding the after call with a try/except (TclError) and/or checking self._quitting or root.winfo_exists() before calling, e.g.: try: self.root.after(0, apply) except TclError: pass."
+    },
+    {
+      "severity": "minor",
+      "file": "ai.py",
+      "comment": "Medium/Hard only block an immediate opponent win when there is exactly one winning move (len(opponent_winning_moves) == 1). This meets the minimum requirement and AC-7 as written, but be aware it will not block open-fours with two endpoints. If you want slightly stronger play (optional), choose one blocking move even when multiple exist."
+    },
+    {
+      "severity": "minor",
+      "file": "game.py",
+      "comment": "The self-import 'import game as game' is unnecessary due to 'from __future__ import annotations' (annotations are stored as strings). You can remove it to avoid confusion; keep the return annotation as 'game.GameState' or 'GameState' as a string."
+    },
+    {
+      "severity": "minor",
+      "file": "ui.py",
+      "comment": "GomokuView.render_board draws a second inner oval for the last-move marker with outline='' and fill=''. This has no visual effect and can be removed or repurposed (e.g., to draw a filled dot) for clarity."
+    },
+    {
+      "severity": "minor",
+      "file": "controller.py",
+      "comment": "on_intersection_click sets a specific status message ('Invalid move: intersection occupied...') and then calls flash_invalid_click(), which briefly replaces the status with a generic invalid-click message before restoring. Consider unifying these to avoid brief message flicker or inconsistency (e.g., pass a reason into flash_invalid_click or only use one mechanism)."
+    }
+  ],
+  "summary": "Overall, the implementation closely follows the proposed MVC architecture, implements all specified public interfaces with correct signatures, and appears runnable via main.main(). Functional requirements and acceptance criteria are broadly satisfied: 15x15 board with snapping, turn enforcement, AI on a background thread with three difficulties (Medium/Hard blocking a single immediate threat; Hard taking immediate wins), win/draw detection, last-move and winning-line indicators, New Game/Starter/Difficulty/ Quit controls, and responsive UI. The AI responds quickly within the timing targets. I recommend a few small robustness and maintainability tweaks noted below, but there are no blockers for approval."
+}

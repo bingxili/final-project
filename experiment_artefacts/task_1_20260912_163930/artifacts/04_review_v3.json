@@ -1,0 +1,47 @@
+{
+  "revision_reviewed": 3,
+  "verdict": "revise",
+  "comments": [
+    {
+      "severity": "blocking",
+      "file": "game.py",
+      "comment": "check_winner enforces exactly five contiguous stones and ignores overlines (see docstring and the condition `if total == 5 and not (neg_extendable or pos_extendable)`). Standard Gomoku rules for this project require five or more consecutive stones to win (FR-7, AC-12). Fix: change logic to declare a win whenever the contiguous total >= 5. Return the full contiguous line (all stones in that run) for highlighting. Update the docstring accordingly."
+    },
+    {
+      "severity": "major",
+      "file": "game.py",
+      "comment": "In check_winner, the `neg_extendable` and `pos_extendable` flags are computed immediately after the while-loops that already stopped at a non-matching cell or boundary, so these flags will always be False. This makes the extendability check redundant and misleading. Once you switch to \">= 5\" logic, remove these variables and simplify the condition to `if total >= 5:` with the correct winning line assembly."
+    },
+    {
+      "severity": "major",
+      "file": "ai.py",
+      "comment": "Immediate win/block detection (`_simulate_move_wins` calling `game.check_winner`) inherits the current rules bug. Until `check_winner` is fixed to accept >=5, Hard may miss immediate wins that create 6-in-a-row. After fixing `check_winner`, this should behave correctly for AC-8 and FR-5."
+    },
+    {
+      "severity": "minor",
+      "file": "game.py",
+      "comment": "Type hint on GameState.copy is `-> \"game.GameState\"`. Because the function is inside game.py, the name `game` is not defined in the module globals and resolving annotations (e.g., via typing.get_type_hints) could raise a NameError. Since you already use `from __future__ import annotations`, consider simplifying to `-> GameState` to avoid potential annotation resolution issues."
+    },
+    {
+      "severity": "minor",
+      "file": "controller.py",
+      "comment": "In start_new_game(), when the starter is AI, consider explicitly disabling the board before scheduling the AI move to avoid any brief UX window where the cursor indicates clickable even though it is AI's turn. Current logic still prevents illegal placement by turn checks, so this is UX polish rather than correctness."
+    },
+    {
+      "severity": "minor",
+      "file": "ui.py",
+      "comment": "flash_invalid_click attempts to change a ttk.Label background which is not supported on all themes; you already guard with try/except. For more consistent feedback across platforms, consider using a style change or a brief status text-only change without background color."
+    },
+    {
+      "severity": "minor",
+      "file": "ui.py",
+      "comment": "set_difficulty_display and set_starter_display duplicate logic to rebuild the info_label text. Consider factoring this into a small helper (e.g., _update_info_text()) to reduce duplication and potential inconsistency."
+    },
+    {
+      "severity": "minor",
+      "file": "ai.py",
+      "comment": "compute_best_move currently ignores the time_limit (aside from a tiny sleep in the controller). This is fine for current heuristics, but if you expand logic later, consider honoring the time_limit to maintain the non-functional performance requirement."
+    }
+  ],
+  "summary": "Overall structure, wiring, and UI/AI threading align well with the architecture. The app appears runnable with a responsive Tkinter UI, correct turn handling, difficulty changes mid-game, and clean quit. However, there is a blocking rules bug: winner detection only recognizes exactly five-in-a-row and rejects overlines (five or more), which violates FR-7 and AC-12. This also impacts Hard AI’s immediate win detection in some cases. Addressing this is required before approval. A few additional maintainability and minor robustness notes are included."
+}

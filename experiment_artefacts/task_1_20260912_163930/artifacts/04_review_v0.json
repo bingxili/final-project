@@ -1,0 +1,37 @@
+{
+  "revision_reviewed": 0,
+  "verdict": "approve",
+  "comments": [
+    {
+      "severity": "minor",
+      "file": "game.py",
+      "comment": "Unused items: _in_bounds(), as well as imports copy as _copy and itertools as _it are not used. Consider removing to reduce clutter."
+    },
+    {
+      "severity": "minor",
+      "file": "game.py",
+      "comment": "check_winner: winning_line is returned as a lexicographically sorted list of coordinates, which may not preserve the geometric order along the line (especially for diagonals). This is fine for your current per-stone highlight, but if later you draw a connecting line, keep the natural end-to-end order by walking from one end to the other."
+    },
+    {
+      "severity": "minor",
+      "file": "controller.py",
+      "comment": "start_new_game(): consider invalidating any in-flight AI job by incrementing ai_job_id when restarting (even when Human starts). It already works due to the AI-turn check and the new schedule when AI starts, but explicitly bumping the job id on restart makes staleness handling more robust to future changes."
+    },
+    {
+      "severity": "minor",
+      "file": "controller.py",
+      "comment": "import time is unused. Remove unused import."
+    },
+    {
+      "severity": "minor",
+      "file": "ai.py",
+      "comment": "compute_best_move() ignores the time_limit argument (the algorithm is fast enough, so it's fine). Optionally document this or enforce a soft cap if future heuristics become more expensive."
+    },
+    {
+      "severity": "minor",
+      "file": "ui.py",
+      "comment": "set_difficulty_display() and set_starter_display() reset the info label to 'Turn: --'. Because the controller immediately calls set_turn() after difficulty/starter changes, users won’t see this for long, but it can cause a brief flicker. Consider keeping the existing 'Turn: ...' line and only updating the relevant parts to avoid transient inconsistency."
+    }
+  ],
+  "summary": "Overall, the implementation adheres well to the specified MVC architecture and satisfies the functional and non-functional requirements for a 15x15 Gomoku with Tkinter UI and AI opponent. Public interfaces match exactly, the app is runnable via main.main(), turn/order enforcement is correct, AI difficulty behaviors meet the minimum acceptance criteria (Medium/Hard block single win-in-one, Hard takes immediate win), and UI provides snapping, last-move marker, winning line highlight, and clear status. AI runs on a background thread with job-id staleness protection, keeping the UI responsive. Only minor issues are noted below; none are blocking."
+}

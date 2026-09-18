@@ -1,0 +1,99 @@
+{
+  "overview": "Desktop Gomoku (15x15) with Tkinter UI and an AI opponent at three difficulty levels. MVC-style separation: game.py holds rules/state, ui.py renders and captures input without blocking, controller.py orchestrates turns and AI scheduling, ai.py computes moves (immediate block/win heuristics, center/adjacency bias), main.py wires everything and runs Tk event loop. AI runs on a background thread to keep UI responsive; controller ignores stale AI results via a job id. The view snaps clicks to nearest intersection within a radius, shows last move marker, winning line highlighting, turn/difficulty status, and provides New Game/Difficulty/Starter/Quit controls.",
+  "language": "python",
+  "modules": [
+    {
+      "name": "main.py",
+      "responsibility": "Runnable entry point. Create Tk root, instantiate GomokuView and GameController, wire callbacks, start the Tk mainloop. Ensures clean shutdown on Quit.",
+      "key_functions_or_classes": [
+        "main"
+      ],
+      "public_interfaces": [
+        "def main() -> None"
+      ]
+    },
+    {
+      "name": "ui.py",
+      "responsibility": "Tkinter-based view: draw 15x15 board on a Canvas, snap clicks to intersections, display controls (New Game, Difficulty: Easy/Medium/Hard, Starter: Human/AI, Quit), show status/turn, last-move marker, and winning line highlighting. No blocking event loop inside; exposes callbacks to controller.",
+      "key_functions_or_classes": [
+        "GomokuView"
+      ],
+      "public_interfaces": [
+        "class GomokuView:  def __init__(self, root: tkinter.Tk, board_size: int = 15, on_intersection_click: Callable[[int, int], None] | None = None, on_new_game: Callable[[], None] | None = None, on_quit: Callable[[], None] | None = None, on_difficulty_change: Callable[[str], None] | None = None, on_starter_change: Callable[[str], None] | None = None) -> None",
+        "GomokuView.render_board(board: list[list[int]], last_move: tuple[int, int] | None = None, winning_line: list[tuple[int, int]] | None = None) -> None",
+        "GomokuView.set_status(text: str) -> None",
+        "GomokuView.set_turn(is_human_turn: bool, color: int) -> None",
+        "GomokuView.set_difficulty_display(difficulty: str) -> None",
+        "GomokuView.set_starter_display(starter: str) -> None",
+        "GomokuView.enable_board() -> None",
+        "GomokuView.disable_board() -> None",
+        "GomokuView.flash_invalid_click() -> None"
+      ]
+    },
+    {
+      "name": "game.py",
+      "responsibility": "Core game model and rules. Maintains board state, turn management, move legality, win/draw detection, last move and winning line tracking. Provides a copy for AI evaluation.",
+      "key_functions_or_classes": [
+        "GameState",
+        "check_winner",
+        "board_full"
+      ],
+      "public_interfaces": [
+        "class GameState:  def __init__(self, board_size: int = 15, human_starts: bool = True) -> None",
+        "GameState.reset(human_starts: bool = True) -> None",
+        "GameState.is_legal(row: int, col: int) -> bool",
+        "GameState.place_stone(row: int, col: int) -> bool",
+        "GameState.current_turn_color() -> int",
+        "GameState.get_empty_intersections() -> list[tuple[int, int]]",
+        "GameState.color_at(row: int, col: int) -> int",
+        "GameState.copy() -> game.GameState",
+        "def check_winner(board: list[list[int]], row: int, col: int) -> tuple[int | None, list[tuple[int, int]] | None]",
+        "def board_full(board: list[list[int]]) -> bool"
+      ]
+    },
+    {
+      "name": "ai.py",
+      "responsibility": "AI move selection. Provides a fast, deterministic-enough move picker per difficulty within time limits: Easy random/center-biased legal move; Medium/HARD block opponent immediate four-in-a-row with single gap; Hard also takes own immediate winning move when available; otherwise uses simple heuristics (adjacency/center bias). Pure compute function for use from a background thread.",
+      "key_functions_or_classes": [
+        "compute_best_move"
+      ],
+      "public_interfaces": [
+        "def compute_best_move(state: game.GameState, difficulty: str, time_limit: float) -> tuple[int, int]"
+      ]
+    },
+    {
+      "name": "controller.py",
+      "responsibility": "Application controller. Wires view and game model, handles user input, enforces turn order, schedules AI on a background thread, applies difficulty and starter settings, manages game restarts and clean quit. Ensures UI responsiveness and ignores stale AI results via a job id.",
+      "key_functions_or_classes": [
+        "GameController"
+      ],
+      "public_interfaces": [
+        "class GameController:  def __init__(self, root: tkinter.Tk, view: ui.GomokuView, default_difficulty: str = 'Medium', default_starter: str = 'Human') -> None",
+        "GameController.start_new_game() -> None",
+        "GameController.on_intersection_click(row: int, col: int) -> None",
+        "GameController.on_difficulty_change(difficulty: str) -> None",
+        "GameController.on_starter_change(starter: str) -> None",
+        "GameController.on_quit() -> None"
+      ]
+    }
+  ],
+  "data_structures": [
+    "Board: list[list[int]] sized 15x15; 0=empty, 1=Black, 2=White.",
+    "Move: tuple[int, int] as (row, col), 0-based indices within [0, 14].",
+    "GameState fields: board_size:int; board:Board; next_color:int (1 or 2); human_color:int; ai_color:int; last_move:Optional[Move]; winning_line:Optional[list[Move]]; winner:Optional[int]; is_draw:bool; moves_count:int.",
+    "Difficulties: str in {'Easy','Medium','Hard'}.",
+    "Starter: str in {'Human','AI'}; starter plays Black (color 1)."
+  ],
+  "design_notes": [
+    "Pattern: MVC. ui.py (View) is passive and callback-driven; game.py (Model) encapsulates rules; controller.py (Controller) coordinates input, model updates, view refresh, and AI scheduling.",
+    "UI: Tkinter Canvas draws grid, stones, last-move marker (e.g., ring or dot), and winning line highlight. Controls via Frame + ttk widgets; status via Label. No call to mainloop outside main.py.",
+    "Click handling: View snaps to nearest intersection within a pixel radius; if outside or occupied, no state change and a brief flash/status message is shown.",
+    "Turn/Rules: Controller checks GameState.is_legal before GameState.place_stone, toggles turn only on success, updates status, and checks for win/draw using game.check_winner and board_full.",
+    "AI: Background Thread per AI move to keep UI responsive. Controller deep-copies GameState (or Board) for AI. A monotonically increasing ai_job_id is used to discard late results after restarts or rapid inputs.",
+    "AI heuristics: Hard first searches for own immediate winning move, then blocks opponent win-in-one; Medium blocks opponent win-in-one; both otherwise prefer moves adjacent to last move or center-biased random among legal moves. Easy picks a quick center-biased random legal move. All paths are linear-time scans over empties (<=225), returning well within time caps.",
+    "Timing: Controller maps difficulty to time limits (Easy<=0.5s, Medium<=1.0s, Hard<=3.0s). AI compute function returns quickly; optional short sleep is avoided to keep UI snappy.",
+    "Responsiveness/Stability: No shared mutable state between UI thread and AI thread; only immutable copies passed to AI. All UI updates are marshaled to the Tk thread via root.after. New Game disables clicks until state reset; AI scheduling guarded to prevent double moves.",
+    "Accessibility: High-contrast stone colors with outlines; last-move marker and winning line use shape markers (e.g., ring and line) so information is not color-only; status text always indicates current turn and difficulty.",
+    "Portability: Standard library only (tkinter, threading, time, random); Python 3.10+ types (| unions)."
+  ]
+}

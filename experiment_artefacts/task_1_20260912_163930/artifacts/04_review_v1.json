@@ -1,0 +1,37 @@
+{
+  "revision_reviewed": 1,
+  "verdict": "revise",
+  "comments": [
+    {
+      "severity": "blocking",
+      "file": "game.py",
+      "comment": "check_winner currently detects only exactly five-in-a-row (total == 5) and explicitly ignores longer lines. Requirements FR-7/AC-12 specify a win on five or more consecutive stones. This will miss wins with 6+ in a row and break endgame handling/highlighting. Fix: change the condition to total >= 5 and keep returning the full contiguous line (neg_coords reversed + (row,col) + pos_coords) so the entire winning line is highlighted. Update the docstring accordingly."
+    },
+    {
+      "severity": "major",
+      "file": "ai.py",
+      "comment": "compute_best_move returns (0, 0) when no empties. While controller guards against calling AI when the game is over, this sentinel can still be invalid if called in a rare edge. Consider returning a valid move only (or signaling no move) and letting the controller handle the no-empty case. Since the public interface requires a tuple, you can still guard with an empties check in controller before scheduling AI, or in compute_best_move return a random empty only when empties exist and otherwise raise or document the precondition."
+    },
+    {
+      "severity": "minor",
+      "file": "game.py",
+      "comment": "GameState.__init__: next_color is initialized twice (set to 1 at declaration and again later). Remove the redundant assignment for clarity."
+    },
+    {
+      "severity": "minor",
+      "file": "controller.py",
+      "comment": "GameController.__init__: self.ai_thread is defined but never used. Either assign the spawned thread to it or remove the attribute to avoid confusion."
+    },
+    {
+      "severity": "minor",
+      "file": "ui.py",
+      "comment": "flash_invalid_click attempts to set the background on a ttk.Label, which many themes ignore. For more reliable non-intrusive feedback (FR-2), consider also setting a brief status text like 'Click on an empty intersection' and clearing it after a short delay, or use a custom ttk Style for a transient visual."
+    },
+    {
+      "severity": "minor",
+      "file": "ui.py",
+      "comment": "WIN_LINE_WIDTH constant is defined but not used. Either use it for the winning line highlight width or remove it to reduce clutter."
+    }
+  ],
+  "summary": "Overall structure matches the MVC architecture, public interfaces are present with correct signatures, the app is runnable via main.main(), UI/AI threading and responsiveness look good, and most functional requirements are addressed. However, there is a blocking rules bug: winner detection only recognizes exactly five-in-a-row, whereas Gomoku per requirements must treat five or more consecutive stones as a win. This will fail core gameplay and related acceptance criteria. A few minor maintainability/usability nits are also noted."
+}

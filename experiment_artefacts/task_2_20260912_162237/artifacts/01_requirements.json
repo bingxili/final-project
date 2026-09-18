@@ -1,0 +1,298 @@
+{
+  "project_summary": "A local desktop Python GUI application for managing multiple projects using a Kanban board (To Do, In Progress, Done). Users can create, edit, delete, and move tasks; define task dependencies; filter tasks by status/priority/tags/due date; and view per-project statistics (counts by status, overdue tasks, completion percentage). All data is stored locally and persists across sessions.",
+  "functional_requirements": [
+    {
+      "id": "FR-1",
+      "description": "Create a new project by entering a name; a new empty Kanban board is created for that project."
+    },
+    {
+      "id": "FR-2",
+      "description": "List existing projects and switch the active view to a selected project."
+    },
+    {
+      "id": "FR-3",
+      "description": "Rename an existing project; all contained tasks remain unchanged."
+    },
+    {
+      "id": "FR-4",
+      "description": "Delete a project with an explicit confirmation step; deleting removes all its tasks."
+    },
+    {
+      "id": "FR-5",
+      "description": "Persist all projects, tasks, and settings locally so they are available after the application restarts."
+    },
+    {
+      "id": "FR-6",
+      "description": "Display a Kanban board per project with exactly three columns: To Do, In Progress, and Done."
+    },
+    {
+      "id": "FR-7",
+      "description": "Create a task with fields: title (required), description (optional), priority (required), tags (0+), due date (optional), and status (To Do/In Progress/Done). New tasks default to To Do if no status is chosen."
+    },
+    {
+      "id": "FR-8",
+      "description": "Edit any task field (title, description, priority, tags, due date, status)."
+    },
+    {
+      "id": "FR-9",
+      "description": "Delete a task; if other tasks depend on it, block deletion and inform the user which tasks are affected."
+    },
+    {
+      "id": "FR-10",
+      "description": "Move a task between columns via UI action; the task's status updates to match the destination column and the card relocates accordingly."
+    },
+    {
+      "id": "FR-11",
+      "description": "Filter tasks within the active project by status (multi-select), priority (multi-select), tags (any-of), and due date range (start/end inclusive)."
+    },
+    {
+      "id": "FR-12",
+      "description": "Clear all active filters to show the full task list/board."
+    },
+    {
+      "id": "FR-13",
+      "description": "Show project statistics: counts of tasks by status, count of overdue tasks (due date before today and not Done), and completion percentage = (Done / total) * 100 rounded to the nearest whole percent."
+    },
+    {
+      "id": "FR-14",
+      "description": "Define task dependencies within the same project by selecting one or more predecessor tasks; view a task’s dependency list."
+    },
+    {
+      "id": "FR-15",
+      "description": "Prevent a task from being set to Done (by status change or moving to Done) if any of its dependencies are not Done; show a blocking message."
+    },
+    {
+      "id": "FR-16",
+      "description": "Prevent circular dependencies when defining/editing dependencies; show a clear error and do not save the change."
+    },
+    {
+      "id": "FR-17",
+      "description": "Provide a task details view/panel showing all fields and its dependencies."
+    },
+    {
+      "id": "FR-18",
+      "description": "Validate inputs: title is non-empty; due date must be a valid calendar date in the accepted format; priority must be one of the allowed values."
+    },
+    {
+      "id": "FR-19",
+      "description": "Allow assigning and removing free-text tags to/from tasks; display tags on the task card and in details."
+    }
+  ],
+  "non_functional_requirements": [
+    "Platform: Runs offline on Windows, macOS, and Linux with Python 3.10+.",
+    "Performance: UI updates (creating/editing/moving a task, applying filters) complete within 250 ms for projects up to 2,000 tasks.",
+    "Startup: Application launches to the project list or last open project in under 2 seconds on a typical modern laptop.",
+    "Reliability: All changes are saved locally within 2 seconds of user action; writes are atomic to avoid data corruption.",
+    "Usability: All primary operations (create/edit/move/filter tasks; switch projects) are accessible via mouse and keyboard.",
+    "Accessibility: Provide clear focus indicators and readable contrast for text and column headers; support basic keyboard navigation between columns and tasks.",
+    "Data integrity: Prevent circular dependencies and prevent deletion of tasks that other tasks depend on without explicit user resolution.",
+    "Privacy/Security: No network access or telemetry; all data remains local and unencrypted by default.",
+    "Internationalization: English-only UI; dates displayed and accepted in ISO 8601 (YYYY-MM-DD).",
+    "Error handling: Invalid operations (e.g., bad dates, blocked completion) display human-readable messages without crashing.",
+    "Time semantics: Overdue calculations use the local system date at midnight (no time-of-day)."
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "description": "Given the app has no projects, when the user creates a project named \"Alpha\", then the project list shows \"Alpha\" and an empty Kanban board with columns To Do, In Progress, and Done is displayed.",
+      "related_requirement_ids": [
+        "FR-1",
+        "FR-6"
+      ]
+    },
+    {
+      "id": "AC-2",
+      "description": "Given projects \"Alpha\" and \"Beta\" exist with different tasks, when the user switches from \"Alpha\" to \"Beta\", then only \"Beta\"'s tasks appear on the board and \"Alpha\"'s tasks are not shown.",
+      "related_requirement_ids": [
+        "FR-2",
+        "FR-6"
+      ]
+    },
+    {
+      "id": "AC-3",
+      "description": "Given a project named \"Alpha\", when the user renames it to \"Gamma\", then the project list shows \"Gamma\" and all existing tasks remain unchanged.",
+      "related_requirement_ids": [
+        "FR-3"
+      ]
+    },
+    {
+      "id": "AC-4",
+      "description": "Given project \"Alpha\" contains tasks, when the user chooses Delete and confirms, then \"Alpha\" and its tasks are removed from the list; if the user cancels at the confirmation, no changes occur.",
+      "related_requirement_ids": [
+        "FR-4"
+      ]
+    },
+    {
+      "id": "AC-5",
+      "description": "Given the user creates project \"Alpha\" and a task, when the application is closed and reopened, then \"Alpha\" and the task are present with all fields unchanged.",
+      "related_requirement_ids": [
+        "FR-5"
+      ]
+    },
+    {
+      "id": "AC-6",
+      "description": "Within project \"Alpha\", when the user creates a task with title \"Write spec\", priority High, tags [\"docs\"], and no due date, then a new task card appears in To Do showing the title and tag.",
+      "related_requirement_ids": [
+        "FR-7",
+        "FR-6"
+      ]
+    },
+    {
+      "id": "AC-7",
+      "description": "Given a task exists, when the user edits its description, changes priority from Medium to High, adds tag \"review\", and sets due date to 2026-09-20, then the task card/details reflect the new description, priority High, tags include \"review\", and due date 2026-09-20.",
+      "related_requirement_ids": [
+        "FR-8"
+      ]
+    },
+    {
+      "id": "AC-8",
+      "description": "Given a task is in To Do, when the user moves it to In Progress (via drag-and-drop or status change), then the card appears only in the In Progress column and its status is In Progress.",
+      "related_requirement_ids": [
+        "FR-10"
+      ]
+    },
+    {
+      "id": "AC-9",
+      "description": "Given a task is in In Progress, when the user moves it back to To Do, then the card appears only in To Do and its status is To Do.",
+      "related_requirement_ids": [
+        "FR-10"
+      ]
+    },
+    {
+      "id": "AC-10",
+      "description": "Given a task has no other tasks depending on it, when the user deletes the task and confirms, then the task card disappears from the board and is not listed after restart.",
+      "related_requirement_ids": [
+        "FR-9",
+        "FR-5"
+      ]
+    },
+    {
+      "id": "AC-11",
+      "description": "Given Task B depends on Task A, when the user attempts to delete Task A, then the system blocks deletion and shows a message listing Task B as dependent.",
+      "related_requirement_ids": [
+        "FR-9",
+        "FR-14"
+      ]
+    },
+    {
+      "id": "AC-12",
+      "description": "Given tasks A and B exist, when the user sets B to depend on A, then B's details view lists A under Dependencies.",
+      "related_requirement_ids": [
+        "FR-14",
+        "FR-17"
+      ]
+    },
+    {
+      "id": "AC-13",
+      "description": "Given B depends on A and A is not Done, when the user attempts to set B's status to Done or moves B into Done, then the system shows a blocking message (e.g., \"Cannot complete: dependencies incomplete\") and B remains not Done.",
+      "related_requirement_ids": [
+        "FR-15",
+        "FR-18"
+      ]
+    },
+    {
+      "id": "AC-14",
+      "description": "Given B depends on A and A is not Done, when the user moves B to In Progress, then the action is allowed and B's status becomes In Progress.",
+      "related_requirement_ids": [
+        "FR-15",
+        "FR-10"
+      ]
+    },
+    {
+      "id": "AC-15",
+      "description": "Given B already depends on A, when the user attempts to set A to depend on B, then the system prevents saving the dependency and shows an error about a circular dependency.",
+      "related_requirement_ids": [
+        "FR-16"
+      ]
+    },
+    {
+      "id": "AC-16",
+      "description": "Given tasks in multiple statuses and priorities exist, when the user sets filters Status = [In Progress] and Priority = [High], then only tasks whose status is In Progress and priority is High are displayed on the board/list.",
+      "related_requirement_ids": [
+        "FR-11"
+      ]
+    },
+    {
+      "id": "AC-17",
+      "description": "Given tasks with tags [\"UI\"], [\"Backend\"], and [\"Docs\"] exist, when the user filters by Tags = [\"UI\", \"API\"], then tasks containing tag \"UI\" are shown, tasks with only \"Backend\" or \"Docs\" are hidden (OR semantics across selected tags).",
+      "related_requirement_ids": [
+        "FR-11",
+        "FR-19"
+      ]
+    },
+    {
+      "id": "AC-18",
+      "description": "Given tasks with due dates 2026-09-10, 2026-09-20, and no due date exist, when the user filters Due Date from 2026-09-01 to 2026-09-15, then only the task due 2026-09-10 is shown; the task due 2026-09-20 and tasks without a due date are excluded.",
+      "related_requirement_ids": [
+        "FR-11"
+      ]
+    },
+    {
+      "id": "AC-19",
+      "description": "Given filters are active, when the user selects Clear/Reset filters, then all filter controls are cleared and all tasks reappear in their columns.",
+      "related_requirement_ids": [
+        "FR-12"
+      ]
+    },
+    {
+      "id": "AC-20",
+      "description": "Given a project with 5 tasks (2 Done, 1 In Progress, 2 To Do) and exactly 1 incomplete task has a due date before today, when the statistics panel is viewed, then it shows To Do = 2, In Progress = 1, Done = 2, Overdue = 1, Completion = 40%.",
+      "related_requirement_ids": [
+        "FR-13"
+      ]
+    },
+    {
+      "id": "AC-21",
+      "description": "Given a task is not Done and has due date 2026-09-10, and the local system date is 2026-09-11, when viewing statistics, then the task is counted as Overdue; after marking the task Done, Overdue decreases accordingly and Completion increases.",
+      "related_requirement_ids": [
+        "FR-13",
+        "FR-15"
+      ]
+    },
+    {
+      "id": "AC-22",
+      "description": "When the user enters an invalid due date (e.g., \"2026-13-40\") and attempts to save, then the system rejects the input, shows an error message, and the previous valid value remains unchanged.",
+      "related_requirement_ids": [
+        "FR-18"
+      ]
+    },
+    {
+      "id": "AC-23",
+      "description": "When the user attempts to set a task's priority to a value outside the allowed set (e.g., \"Critical\"), then the system prevents saving and informs the user of the allowed values.",
+      "related_requirement_ids": [
+        "FR-18"
+      ]
+    },
+    {
+      "id": "AC-24",
+      "description": "Given a task without tags, when the user adds tag \"backend\" and saves, then the tag is displayed on the card; when the user removes \"backend\" and saves, then the tag is no longer displayed.",
+      "related_requirement_ids": [
+        "FR-19"
+      ]
+    }
+  ],
+  "assumptions": [
+    "Single-user desktop application; no authentication or user accounts.",
+    "All data is stored locally on the same machine; no cloud sync.",
+    "Each project’s Kanban board has exactly three fixed columns (To Do, In Progress, Done); columns cannot be added, removed, or renamed.",
+    "Tasks may share the same title within a project; uniqueness is not enforced.",
+    "Priority values are Low, Medium, and High.",
+    "Tags are free-text, case-insensitive for filtering; multiple tags can be assigned to a task.",
+    "Dependencies are only between tasks within the same project; cross-project dependencies are not supported.",
+    "Due date is date-only (no time); comparisons use the local system date; input and display use ISO 8601 (YYYY-MM-DD).",
+    "Filtering and statistics operate on the currently active project only.",
+    "No file attachments, rich-text formatting, or images in task fields."
+  ],
+  "out_of_scope": [
+    "Multi-user collaboration, real-time sync, or networking features.",
+    "User authentication, roles, or permissions.",
+    "Custom columns, swimlanes, or WIP limits beyond the three standard statuses.",
+    "Integrations with external tools (e.g., Jira, Trello, calendars, email).",
+    "Gantt charts, timeline views, or roadmaps.",
+    "Mobile applications or web deployment.",
+    "Import/export/backup management UI (beyond local persistence).",
+    "Undo/redo history.",
+    "Localization beyond English.",
+    "Printing or report generation."
+  ]
+}
